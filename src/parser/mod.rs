@@ -1,6 +1,6 @@
 // Represents the sign used by the css attribute selector
 #[derive(Debug, Clone, PartialEq)]
-enum AttributeSign {
+pub enum AttributeSign {
     Empty,
     // Represents =
     Equal,
@@ -14,7 +14,7 @@ enum AttributeSign {
 
 // Represents an element attribute (e.g. #id, .class, ....)
 #[derive(Debug, Clone, PartialEq)]
-enum CssSelectorAttribute {
+pub enum CssSelectorAttribute {
     // Represents a css id selector like #efg
     ID(String),
     // Represents a css class selector like .abcd
@@ -27,13 +27,13 @@ enum CssSelectorAttribute {
 
 // Represents a css selector (e.g. div#id, div.class, ....)
 #[derive(Debug, Default, Clone, PartialEq)]
-struct CssSelector {
-    name: Option<String>,
-    attribute: Option<CssSelectorAttribute>,
+pub struct CssSelector {
+    pub name: Option<String>,
+    pub attribute: Option<CssSelectorAttribute>,
 }
 
 /// Parse a string made of css selectors
-fn parse(expression: String) -> Vec<CssSelector> {
+pub fn parse(expression: String) -> Vec<CssSelector> {
     let mut current_node = CssSelector::default();
     let mut nodes: Vec<CssSelector> = vec![];
     let mut previous_char: char = '°';
