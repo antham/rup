@@ -7,6 +7,7 @@ use html5ever::parse_document;
 use html5ever::tendril::stream::TendrilSink;
 use html5ever::tendril::StrTendril;
 use markup5ever_rcdom::{Handle, Node, NodeData, RcDom};
+use parser::AttributeSign;
 
 // Filters html nodes matching the given css expression
 pub fn filter(content: String, css_selectors: &Vec<parser::CssSelector>) -> Vec<Rc<Node>> {
@@ -45,16 +46,30 @@ fn filter_matching_nodes(
             let is_matching_selector_attribute = selector.attribute.to_owned().map_or_else(
                 || true,
                 |c| {
-                    let (identifier, value) = match c {
-                        CssSelectorAttribute::ID(id) => ("id", id),
-                        CssSelectorAttribute::Class(class) => ("class", class),
-                        _ => ("", "".to_string()),
+                    enum Sign {
+                        Empty,
+                        Equal,
+                    }
+
+                    let (identifier, sign, value) = match c {
+                        CssSelectorAttribute::ID(id) => ("id".to_string(), Sign::Equal, id),
+                        CssSelectorAttribute::Class(class) => {
+                            ("class".to_string(), Sign::Equal, class)
+                        }
+                        CssSelectorAttribute::Attribute(attr, AttributeSign::Equal, Some(val)) => {
+                            (attr, Sign::Equal, val)
+                        }
+                        _ => (String::new(), Sign::Empty, "".to_string()),
                     };
                     attrs
                         .borrow()
                         .iter()
                         .filter(|v| {
-                            v.name.local.to_string() == identifier && v.value.to_string() == *value
+                            v.name.local.to_string() == identifier
+                                && match sign {
+                                    Sign::Equal => v.value.to_string() == *value,
+                                    _ => false,
+                                }
                         })
                         .collect::<Vec<_>>()
                         .len()
@@ -127,29 +142,6 @@ mod tests {
                 1,
             ),
             (
-                // Css expression made of a div on a different branch than the span
-                vec![
-                    CssSelector {
-                        name: Some("div".to_string()),
-                        attribute: None,
-                    },
-                    CssSelector {
-                        name: Some("div".to_string()),
-                        attribute: None,
-                    },
-                    CssSelector {
-                        name: Some("div".to_string()),
-                        attribute: None,
-                    },
-                    CssSelector {
-                        name: Some("div".to_string()),
-                        attribute: None,
-                    },
-                ],
-                r#"<div><div></div></div>"#,
-                1,
-            ),
-            (
                 // Css expression returning several nodes
                 vec![
                     CssSelector {
@@ -183,6 +175,29 @@ mod tests {
                 ],
                 r#"<span class="1">TEST 1</span><span class="2">TEST 2</span><span class="3">TEST 3</span><span class="4">TEST 4</span><span class="5">TEST 5</span><span class="6">TEST 6</span><span class="7">TEST 7</span><span class="8">TEST 8</span><span class="9">TEST 9</span>"#,
                 9,
+            ),
+            (
+                // Css expression with strict equality attribute selector
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: None,
+                        attribute: Some(CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::Equal,
+                            Some("2".to_string()),
+                        )),
+                    },
+                ],
+                r#"<div data-val="2">TEST 2</div><div data-val="2"><div data-val="2">TEST 4</div><div data-val="1">TEST 5</div><div data-val="2">TEST 6</div></div><div data-val="2">TEST 8</div>"#,
+                3,
             ),
             (
                 // Css expression with an unexisting node
