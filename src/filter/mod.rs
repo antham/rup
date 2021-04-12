@@ -49,6 +49,8 @@ fn filter_matching_nodes(
                     enum Sign {
                         Empty,
                         Equal,
+                        BeginWith,
+                        EndWith,
                     }
 
                     let (identifier, sign, value) = match c {
@@ -59,6 +61,16 @@ fn filter_matching_nodes(
                         CssSelectorAttribute::Attribute(attr, AttributeSign::Equal, Some(val)) => {
                             (attr, Sign::Equal, val)
                         }
+                        CssSelectorAttribute::Attribute(
+                            attr,
+                            AttributeSign::BeginWith,
+                            Some(val),
+                        ) => (attr, Sign::BeginWith, val),
+                        CssSelectorAttribute::Attribute(
+                            attr,
+                            AttributeSign::EndWith,
+                            Some(val),
+                        ) => (attr, Sign::EndWith, val),
                         _ => (String::new(), Sign::Empty, "".to_string()),
                     };
                     attrs
@@ -68,6 +80,10 @@ fn filter_matching_nodes(
                             v.name.local.to_string() == identifier
                                 && match sign {
                                     Sign::Equal => v.value.to_string() == *value,
+                                    Sign::BeginWith => {
+                                        v.value.to_string().starts_with(value.as_str())
+                                    }
+                                    Sign::EndWith => v.value.to_string().ends_with(value.as_str()),
                                     _ => false,
                                 }
                         })
@@ -198,6 +214,52 @@ mod tests {
                 ],
                 r#"<div data-val="2">TEST 2</div><div data-val="2"><div data-val="2">TEST 4</div><div data-val="1">TEST 5</div><div data-val="2">TEST 6</div></div><div data-val="2">TEST 8</div>"#,
                 3,
+            ),
+            (
+                // Css expression with beginning with attribute selector
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: None,
+                        attribute: Some(CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::BeginWith,
+                            Some("5".to_string()),
+                        )),
+                    },
+                ],
+                r#"<div data-val="5678">TEST 10</div>"#,
+                1,
+            ),
+            (
+                // Css expression with ending with attribute selector
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: None,
+                        attribute: Some(CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::EndWith,
+                            Some("5".to_string()),
+                        )),
+                    },
+                ],
+                r#"<div data-val="797985">TEST 12</div>"#,
+                1,
             ),
             (
                 // Css expression with an unexisting node

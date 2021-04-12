@@ -7,9 +7,9 @@ pub enum AttributeSign {
     // Represents ~=
     Contains,
     // Represents ^=
-    Begin,
+    BeginWith,
     // Represents $=
-    End,
+    EndWith,
 }
 
 // Represents an element attribute (e.g. #id, .class, ....)
@@ -121,14 +121,14 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                     '=' if previous_char == '^' && sign == &AttributeSign::Empty => {
                         current_node.attribute = Some(CssSelectorAttribute::Attribute(
                             left_operand.to_owned(),
-                            AttributeSign::Begin,
+                            AttributeSign::BeginWith,
                             None,
                         ))
                     }
                     '=' if previous_char == '$' && sign == &AttributeSign::Empty => {
                         current_node.attribute = Some(CssSelectorAttribute::Attribute(
                             left_operand.to_owned(),
-                            AttributeSign::End,
+                            AttributeSign::EndWith,
                             None,
                         ))
                     }
@@ -237,11 +237,11 @@ mod tests {
                 },
                 CssSelector {
                     name: Some("div".to_string()),
-                    attribute: Some(CssSelectorAttribute::Attribute("data-class".to_string(), AttributeSign::End ,Some("red1".to_string()))),
+                    attribute: Some(CssSelectorAttribute::Attribute("data-class".to_string(), AttributeSign::EndWith ,Some("red1".to_string()))),
                 },
                 CssSelector {
                     name: Some("span".to_string()),
-                    attribute: Some(CssSelectorAttribute::Attribute("role".to_string(), AttributeSign::Begin ,Some("complementary".to_string()))),
+                    attribute: Some(CssSelectorAttribute::Attribute("role".to_string(), AttributeSign::BeginWith ,Some("complementary".to_string()))),
                 },
             ]
         );
