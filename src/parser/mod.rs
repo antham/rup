@@ -4,8 +4,8 @@ pub enum AttributeSign {
     Empty,
     // Represents =
     Equal,
-    // Represents ~=
-    Contains,
+    // Represents *=
+    Contain,
     // Represents ^=
     BeginWith,
     // Represents $=
@@ -132,10 +132,10 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                             None,
                         ))
                     }
-                    '=' if previous_char == '~' && sign == &AttributeSign::Empty => {
+                    '=' if previous_char == '*' && sign == &AttributeSign::Empty => {
                         current_node.attribute = Some(CssSelectorAttribute::Attribute(
                             left_operand.to_owned(),
-                            AttributeSign::Contains,
+                            AttributeSign::Contain,
                             None,
                         ))
                     }
@@ -148,7 +148,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                         previous_char = c;
                         continue;
                     }
-                    '~' | '$' | '^' if right_operand == &None => {
+                    '*' | '$' | '^' if right_operand == &None => {
                         previous_char = c;
                         continue;
                     }
@@ -195,7 +195,7 @@ mod tests {
     fn parse_expression() {
         assert_eq!(
             parse(
-                r#"#blue div#purple .green div.red :first-of-type p:first-child span:nth-child(2) [data-id='1234'] a[href~='hello'] div[data-class$="red1"] span[role^="complementary"]"#
+                r#"#blue div#purple .green div.red :first-of-type p:first-child span:nth-child(2) [data-id='1234'] a[href*='hello'] div[data-class$="red1"] span[role^="complementary"]"#
                     .to_string()
             ),
             vec![
@@ -233,7 +233,7 @@ mod tests {
                 },
                 CssSelector {
                     name: Some("a".to_string()),
-                    attribute: Some(CssSelectorAttribute::Attribute("href".to_string(), AttributeSign::Contains ,Some("hello".to_string()))),
+                    attribute: Some(CssSelectorAttribute::Attribute("href".to_string(), AttributeSign::Contain ,Some("hello".to_string()))),
                 },
                 CssSelector {
                     name: Some("div".to_string()),

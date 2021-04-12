@@ -51,6 +51,7 @@ fn filter_matching_nodes(
                         Equal,
                         BeginWith,
                         EndWith,
+                        Contain,
                     }
 
                     let (identifier, sign, value) = match c {
@@ -71,6 +72,11 @@ fn filter_matching_nodes(
                             AttributeSign::EndWith,
                             Some(val),
                         ) => (attr, Sign::EndWith, val),
+                        CssSelectorAttribute::Attribute(
+                            attr,
+                            AttributeSign::Contain,
+                            Some(val),
+                        ) => (attr, Sign::Contain, val),
                         _ => (String::new(), Sign::Empty, "".to_string()),
                     };
                     attrs
@@ -84,6 +90,7 @@ fn filter_matching_nodes(
                                         v.value.to_string().starts_with(value.as_str())
                                     }
                                     Sign::EndWith => v.value.to_string().ends_with(value.as_str()),
+                                    Sign::Contain => v.value.to_string().contains(value.as_str()),
                                     _ => false,
                                 }
                         })
@@ -259,6 +266,29 @@ mod tests {
                     },
                 ],
                 r#"<div data-val="797985">TEST 12</div>"#,
+                1,
+            ),
+            (
+                // Css expression with containing attribute selector
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: None,
+                        attribute: Some(CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::Contain,
+                            Some("756".to_string()),
+                        )),
+                    },
+                ],
+                r#"<div data-val="67567">TEST 11</div>"#,
                 1,
             ),
             (
