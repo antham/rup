@@ -55,43 +55,46 @@ fn filter_matching_nodes(
                     }
 
                     let (identifier, sign, value) = match c {
-                        CssSelectorAttribute::ID(id) => ("id".to_string(), Sign::Equal, id),
+                        CssSelectorAttribute::ID(id) => ("id".to_string(), Sign::Equal, Some(id)),
                         CssSelectorAttribute::Class(class) => {
-                            ("class".to_string(), Sign::Equal, class)
+                            ("class".to_string(), Sign::Equal, Some(class))
                         }
-                        CssSelectorAttribute::Attribute(attr, AttributeSign::Equal, Some(val)) => {
-                            (attr, Sign::Equal, val)
+                        CssSelectorAttribute::Attribute(attr, AttributeSign::Empty, v) => {
+                            (attr, Sign::Empty, v)
                         }
-                        CssSelectorAttribute::Attribute(
-                            attr,
-                            AttributeSign::BeginWith,
-                            Some(val),
-                        ) => (attr, Sign::BeginWith, val),
-                        CssSelectorAttribute::Attribute(
-                            attr,
-                            AttributeSign::EndWith,
-                            Some(val),
-                        ) => (attr, Sign::EndWith, val),
-                        CssSelectorAttribute::Attribute(
-                            attr,
-                            AttributeSign::Contain,
-                            Some(val),
-                        ) => (attr, Sign::Contain, val),
-                        _ => (String::new(), Sign::Empty, "".to_string()),
+                        CssSelectorAttribute::Attribute(attr, AttributeSign::Equal, v) => {
+                            (attr, Sign::Equal, v)
+                        }
+                        CssSelectorAttribute::Attribute(attr, AttributeSign::Contain, v) => {
+                            (attr, Sign::Contain, v)
+                        }
+                        CssSelectorAttribute::Attribute(attr, AttributeSign::BeginWith, v) => {
+                            (attr, Sign::BeginWith, v)
+                        }
+                        CssSelectorAttribute::Attribute(attr, AttributeSign::EndWith, v) => {
+                            (attr, Sign::EndWith, v)
+                        }
+                        _ => (String::new(), Sign::Empty, Some("".to_string())),
                     };
                     attrs
                         .borrow()
                         .iter()
                         .filter(|v| {
                             v.name.local.to_string() == identifier
-                                && match sign {
-                                    Sign::Equal => v.value.to_string() == *value,
-                                    Sign::BeginWith => {
-                                        v.value.to_string().starts_with(value.as_str())
+                                && if let Some(val) = value.to_owned() {
+                                    match sign {
+                                        Sign::Equal => v.value.to_string() == *val,
+                                        Sign::Contain => v.value.to_string().contains(val.as_str()),
+                                        Sign::BeginWith => {
+                                            v.value.to_string().starts_with(val.as_str())
+                                        }
+                                        Sign::EndWith => {
+                                            v.value.to_string().ends_with(val.as_str())
+                                        }
+                                        _ => false,
                                     }
-                                    Sign::EndWith => v.value.to_string().ends_with(value.as_str()),
-                                    Sign::Contain => v.value.to_string().contains(value.as_str()),
-                                    _ => false,
+                                } else {
+                                    true
                                 }
                         })
                         .collect::<Vec<_>>()
@@ -292,6 +295,29 @@ mod tests {
                 1,
             ),
             (
+                // Css expression with matching attribute selector
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attribute: None,
+                    },
+                    CssSelector {
+                        name: None,
+                        attribute: Some(CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::Empty,
+                            None,
+                        )),
+                    },
+                ],
+                r#"<div data-val="1"><div data-val="1">TEST 1</div><div data-val="2">TEST 2</div><div data-val="1">TEST 3</div></div><div data-val="2"><div data-val="2">TEST 4</div><div data-val="1">TEST 5</div><div data-val="2">TEST 6</div></div><div data-val="1"><div data-val="1">TEST 9</div><div data-val="2">TEST 8</div><div data-val="1">TEST 9</div></div><div data-val="3"><div data-val="5678">TEST 10</div><div data-val="67567">TEST 11</div><div data-val="797985">TEST 12</div></div>"#,
+                4,
+            ),
+            (
                 // Css expression with an unexisting node
                 vec![
                     CssSelector {
@@ -334,14 +360,9 @@ mod tests {
 
             debug_assert_eq!(
                 regex::Regex::new(">\\s*<").unwrap().replace_all(
-                    String::from_utf8(
-                        bg.to_bytes()
-                            .into_iter()
-                            .filter(|c| *c as char != '\n')
-                            .collect()
-                    )
-                    .unwrap()
-                    .as_ref(),
+                    String::from_utf8(bg.to_bytes().into_iter().collect())
+                        .unwrap()
+                        .as_ref(),
                     "><"
                 ),
                 expected_html
