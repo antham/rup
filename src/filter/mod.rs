@@ -155,6 +155,7 @@ mod tests {
                         attribute: Some(CssSelectorAttribute::Class("3".to_string())),
                     },
                 ],
+                "chain_of_css.html",
                 r#"<span class="3">TEST 3</span>"#,
                 1,
             ),
@@ -164,6 +165,7 @@ mod tests {
                     name: Some("span".to_string()),
                     attribute: Some(CssSelectorAttribute::ID("3".to_string())),
                 }],
+                "single_css_selector.html",
                 r#"<span id="3"><span class="7">TEST 7</span><span class="8">TEST 8</span><span class="9">TEST 9</span></span>"#,
                 1,
             ),
@@ -199,6 +201,7 @@ mod tests {
                         attribute: None,
                     },
                 ],
+                "several_nodes.html",
                 r#"<span class="1">TEST 1</span><span class="2">TEST 2</span><span class="3">TEST 3</span><span class="4">TEST 4</span><span class="5">TEST 5</span><span class="6">TEST 6</span><span class="7">TEST 7</span><span class="8">TEST 8</span><span class="9">TEST 9</span>"#,
                 9,
             ),
@@ -222,6 +225,7 @@ mod tests {
                         )),
                     },
                 ],
+                "strict_equality_selector.html",
                 r#"<div data-val="2">TEST 2</div><div data-val="2"><div data-val="2">TEST 4</div><div data-val="1">TEST 5</div><div data-val="2">TEST 6</div></div><div data-val="2">TEST 8</div>"#,
                 3,
             ),
@@ -245,6 +249,7 @@ mod tests {
                         )),
                     },
                 ],
+                "with_beginning_selector.html",
                 r#"<div data-val="5678">TEST 10</div>"#,
                 1,
             ),
@@ -268,6 +273,7 @@ mod tests {
                         )),
                     },
                 ],
+                "with_ending_selector.html",
                 r#"<div data-val="797985">TEST 12</div>"#,
                 1,
             ),
@@ -291,6 +297,7 @@ mod tests {
                         )),
                     },
                 ],
+                "containing_selector.html",
                 r#"<div data-val="67567">TEST 11</div>"#,
                 1,
             ),
@@ -314,6 +321,7 @@ mod tests {
                         )),
                     },
                 ],
+                "matching_selector.html",
                 r#"<div data-val="1"><div data-val="1">TEST 1</div><div data-val="2">TEST 2</div><div data-val="1">TEST 3</div></div><div data-val="2"><div data-val="2">TEST 4</div><div data-val="1">TEST 5</div><div data-val="2">TEST 6</div></div><div data-val="1"><div data-val="1">TEST 9</div><div data-val="2">TEST 8</div><div data-val="1">TEST 9</div></div><div data-val="3"><div data-val="5678">TEST 10</div><div data-val="67567">TEST 11</div><div data-val="797985">TEST 12</div></div>"#,
                 4,
             ),
@@ -329,14 +337,15 @@ mod tests {
                         attribute: None,
                     },
                 ],
+                "unexisting_node.html",
                 r#""#,
                 0,
             ),
         ];
 
-        for (css_selectors, expected_html, matching_node_count) in scenarios {
+        for (css_selectors, filename, expected_html, matching_node_count) in scenarios {
             let content = fs::read_to_string(
-                env::var("CARGO_MANIFEST_DIR").unwrap() + "/src/filter/test.html",
+                env::var("CARGO_MANIFEST_DIR").unwrap() + "/src/filter/" + filename,
             )
             .unwrap();
             let nodes = filter(content, &css_selectors);
