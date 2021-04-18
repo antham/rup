@@ -46,56 +46,51 @@ fn filter_matching_nodes(
             let is_matching_selector_attribute = selector.attribute.to_owned().map_or_else(
                 || true,
                 |c| {
-                    enum Sign {
-                        Empty,
-                        Equal,
-                        BeginWith,
-                        EndWith,
-                        Contain,
-                    }
-
-                    let (identifier, sign, value) = match c {
-                        CssSelectorAttribute::ID(id) => ("id".to_string(), Sign::Equal, Some(id)),
-                        CssSelectorAttribute::Class(class) => {
-                            ("class".to_string(), Sign::Equal, Some(class))
-                        }
-                        CssSelectorAttribute::Attribute(attr, AttributeSign::Empty, v) => {
-                            (attr, Sign::Empty, v)
-                        }
-                        CssSelectorAttribute::Attribute(attr, AttributeSign::Equal, v) => {
-                            (attr, Sign::Equal, v)
-                        }
-                        CssSelectorAttribute::Attribute(attr, AttributeSign::Contain, v) => {
-                            (attr, Sign::Contain, v)
-                        }
-                        CssSelectorAttribute::Attribute(attr, AttributeSign::BeginWith, v) => {
-                            (attr, Sign::BeginWith, v)
-                        }
-                        CssSelectorAttribute::Attribute(attr, AttributeSign::EndWith, v) => {
-                            (attr, Sign::EndWith, v)
-                        }
-                        _ => (String::new(), Sign::Empty, Some("".to_string())),
-                    };
                     attrs
                         .borrow()
                         .iter()
-                        .filter(|v| {
-                            v.name.local.to_string() == identifier
-                                && if let Some(val) = value.to_owned() {
-                                    match sign {
-                                        Sign::Equal => v.value.to_string() == *val,
-                                        Sign::Contain => v.value.to_string().contains(val.as_str()),
-                                        Sign::BeginWith => {
-                                            v.value.to_string().starts_with(val.as_str())
-                                        }
-                                        Sign::EndWith => {
-                                            v.value.to_string().ends_with(val.as_str())
-                                        }
-                                        _ => false,
-                                    }
-                                } else {
-                                    true
-                                }
+                        .filter(|v| match &c {
+                            CssSelectorAttribute::ID(id) => {
+                                v.name.local.to_string() == "id"
+                                    && v.value.to_string() == id.to_owned()
+                            }
+                            CssSelectorAttribute::Class(class) => {
+                                v.name.local.to_string() == "class"
+                                    && v.value.to_string() == class.to_owned()
+                            }
+                            CssSelectorAttribute::Attribute(attr, AttributeSign::Empty, None) => {
+                                v.name.local.to_string() == *attr
+                            }
+                            CssSelectorAttribute::Attribute(
+                                attr,
+                                AttributeSign::Equal,
+                                Some(val),
+                            ) => v.name.local.to_string() == *attr && v.value.to_string() == *val,
+                            CssSelectorAttribute::Attribute(
+                                attr,
+                                AttributeSign::Contain,
+                                Some(val),
+                            ) => {
+                                v.name.local.to_string() == *attr
+                                    && v.value.to_string().contains(val.as_str())
+                            }
+                            CssSelectorAttribute::Attribute(
+                                attr,
+                                AttributeSign::BeginWith,
+                                Some(val),
+                            ) => {
+                                v.name.local.to_string() == *attr
+                                    && v.value.to_string().starts_with(val.as_str())
+                            }
+                            CssSelectorAttribute::Attribute(
+                                attr,
+                                AttributeSign::EndWith,
+                                Some(val),
+                            ) => {
+                                v.name.local.to_string() == *attr
+                                    && v.value.to_string().ends_with(val.as_str())
+                            }
+                            _ => false,
                         })
                         .collect::<Vec<_>>()
                         .len()
