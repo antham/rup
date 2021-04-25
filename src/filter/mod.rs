@@ -43,62 +43,73 @@ fn filter_matching_nodes(
                 .to_owned()
                 .name
                 .map_or_else(|| true, |v| v == name.local.to_string());
-            let is_matching_selector_attribute = selector.attribute.to_owned().map_or_else(
-                || true,
-                |c| {
-                    attrs
-                        .borrow()
-                        .iter()
-                        .filter(|v| match &c {
-                            CssSelectorAttribute::ID(id) => {
-                                v.name.local.to_string() == "id"
-                                    && v.value.to_string() == id.to_owned()
-                            }
-                            CssSelectorAttribute::Class(class) => {
-                                v.name.local.to_string() == "class"
-                                    && v.value.to_string() == class.to_owned()
-                            }
-                            CssSelectorAttribute::Attribute(attr, AttributeSign::Empty, None) => {
-                                v.name.local.to_string() == *attr
-                            }
-                            CssSelectorAttribute::Attribute(
-                                attr,
-                                AttributeSign::Equal,
-                                Some(val),
-                            ) => v.name.local.to_string() == *attr && v.value.to_string() == *val,
-                            CssSelectorAttribute::Attribute(
-                                attr,
-                                AttributeSign::Contain,
-                                Some(val),
-                            ) => {
-                                v.name.local.to_string() == *attr
-                                    && v.value.to_string().contains(val.as_str())
-                            }
-                            CssSelectorAttribute::Attribute(
-                                attr,
-                                AttributeSign::BeginWith,
-                                Some(val),
-                            ) => {
-                                v.name.local.to_string() == *attr
-                                    && v.value.to_string().starts_with(val.as_str())
-                            }
-                            CssSelectorAttribute::Attribute(
-                                attr,
-                                AttributeSign::EndWith,
-                                Some(val),
-                            ) => {
-                                v.name.local.to_string() == *attr
-                                    && v.value.to_string().ends_with(val.as_str())
-                            }
-                            _ => false,
-                        })
-                        .collect::<Vec<_>>()
-                        .len()
-                        == 1
-                },
-            );
+            let is_matching_selector_attributes =
+                selector.attributes.iter().fold(true, |acc, c| {
+                    if acc == false {
+                        false
+                    } else {
+                        attrs
+                            .borrow()
+                            .iter()
+                            .flat_map(|attr| {
+                                let v = if attr.name.local.to_string() == "class" {
+                                    attr.value
+                                        .to_string()
+                                        .split_whitespace()
+                                        .map(|s| s.to_string())
+                                        .collect::<Vec<_>>()
+                                } else {
+                                    vec![attr.value.to_string()]
+                                };
 
-            let is_matching_node = is_matching_selector && is_matching_selector_attribute;
+                                vec![attr.name.local.as_ref()]
+                                    .repeat(v.len())
+                                    .into_iter()
+                                    .zip(v)
+                                    .collect::<Vec<_>>()
+                            })
+                            .into_iter()
+                            .filter(|v| match &c {
+                                CssSelectorAttribute::ID(id) => {
+                                    (*v).0 == "id" && (*v).1 == id.to_owned()
+                                }
+                                CssSelectorAttribute::Class(class) => {
+                                    (*v).0 == "class" && (*v).1 == class.to_owned()
+                                }
+                                CssSelectorAttribute::Attribute(
+                                    attr,
+                                    AttributeSign::Empty,
+                                    None,
+                                ) => (*v).0 == *attr,
+                                CssSelectorAttribute::Attribute(
+                                    attr,
+                                    AttributeSign::Equal,
+                                    Some(val),
+                                ) => (*v).0 == *attr && (*v).1 == *val,
+                                CssSelectorAttribute::Attribute(
+                                    attr,
+                                    AttributeSign::Contain,
+                                    Some(val),
+                                ) => (*v).0 == *attr && (*v).1.contains(val.as_str()),
+                                CssSelectorAttribute::Attribute(
+                                    attr,
+                                    AttributeSign::BeginWith,
+                                    Some(val),
+                                ) => (*v).0 == *attr && (*v).1.starts_with(val.as_str()),
+                                CssSelectorAttribute::Attribute(
+                                    attr,
+                                    AttributeSign::EndWith,
+                                    Some(val),
+                                ) => (*v).0 == *attr && (*v).1.ends_with(val.as_str()),
+                                _ => false,
+                            })
+                            .collect::<Vec<_>>()
+                            .len()
+                            == 1
+                    }
+                });
+
+            let is_matching_node = is_matching_selector && is_matching_selector_attributes;
             let next_index = if is_matching_node { index + 1 } else { index };
 
             if next_index == css_selectors.len() && is_matching_node {
@@ -135,19 +146,19 @@ mod tests {
                 vec![
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: Some(CssSelectorAttribute::ID("1".to_string())),
+                        attributes: vec![CssSelectorAttribute::ID("1".to_string())],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: Some(CssSelectorAttribute::Class("3".to_string())),
+                        attributes: vec![CssSelectorAttribute::Class("3".to_string())],
                     },
                 ],
                 "chain_of_css.html",
@@ -158,7 +169,7 @@ mod tests {
                 // Css expression made of a single css selector down into the html
                 vec![CssSelector {
                     name: Some("span".to_string()),
-                    attribute: Some(CssSelectorAttribute::ID("3".to_string())),
+                    attributes: vec![CssSelectorAttribute::ID("3".to_string())],
                 }],
                 "single_css_selector.html",
                 r#"<span id="3"><span class="7">TEST 7</span><span class="8">TEST 8</span><span class="9">TEST 9</span></span>"#,
@@ -169,31 +180,31 @@ mod tests {
                 vec![
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("span".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                 ],
                 "several_nodes.html",
@@ -205,19 +216,19 @@ mod tests {
                 vec![
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: None,
-                        attribute: Some(CssSelectorAttribute::Attribute(
+                        attributes: vec![CssSelectorAttribute::Attribute(
                             "data-val".to_string(),
                             AttributeSign::Equal,
                             Some("2".to_string()),
-                        )),
+                        )],
                     },
                 ],
                 "strict_equality_selector.html",
@@ -229,19 +240,19 @@ mod tests {
                 vec![
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: None,
-                        attribute: Some(CssSelectorAttribute::Attribute(
+                        attributes: vec![CssSelectorAttribute::Attribute(
                             "data-val".to_string(),
                             AttributeSign::BeginWith,
                             Some("5".to_string()),
-                        )),
+                        )],
                     },
                 ],
                 "with_beginning_selector.html",
@@ -253,19 +264,19 @@ mod tests {
                 vec![
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: None,
-                        attribute: Some(CssSelectorAttribute::Attribute(
+                        attributes: vec![CssSelectorAttribute::Attribute(
                             "data-val".to_string(),
                             AttributeSign::EndWith,
                             Some("5".to_string()),
-                        )),
+                        )],
                     },
                 ],
                 "with_ending_selector.html",
@@ -277,19 +288,19 @@ mod tests {
                 vec![
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: None,
-                        attribute: Some(CssSelectorAttribute::Attribute(
+                        attributes: vec![CssSelectorAttribute::Attribute(
                             "data-val".to_string(),
                             AttributeSign::Contain,
                             Some("756".to_string()),
-                        )),
+                        )],
                     },
                 ],
                 "containing_selector.html",
@@ -301,19 +312,19 @@ mod tests {
                 vec![
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: None,
-                        attribute: Some(CssSelectorAttribute::Attribute(
+                        attributes: vec![CssSelectorAttribute::Attribute(
                             "data-val".to_string(),
                             AttributeSign::Empty,
                             None,
-                        )),
+                        )],
                     },
                 ],
                 "matching_selector.html",
@@ -321,15 +332,40 @@ mod tests {
                 4,
             ),
             (
+                // Css expression with mutli attribute
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                    },
+                    CssSelector {
+                        name: Some("span".to_string()),
+                        attributes: vec![
+                            CssSelectorAttribute::Class("test2".to_string()),
+                            CssSelectorAttribute::Attribute(
+                                "data-attr".to_string(),
+                                AttributeSign::Equal,
+                                Some("test".to_string()),
+                            ),
+                            CssSelectorAttribute::Class("test3".to_string()),
+                            CssSelectorAttribute::Class("test1".to_string()),
+                        ],
+                    },
+                ],
+                "multi_attributes.html",
+                r#"<span data-attr="test" class="test1 test2 test3">TEST 1</span>"#,
+                1,
+            ),
+            (
                 // Css expression with an unexisting node
                 vec![
                     CssSelector {
                         name: Some("li".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                     CssSelector {
                         name: Some("div".to_string()),
-                        attribute: None,
+                        attributes: vec![],
                     },
                 ],
                 "unexisting_node.html",
