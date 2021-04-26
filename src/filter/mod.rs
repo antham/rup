@@ -1,11 +1,11 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
-use crate::parser::CssSelectorAttribute;
+use crate::parser::{CssSelector, CssSelectorAttribute};
 
 use super::parser;
-use html5ever::parse_document;
 use html5ever::tendril::stream::TendrilSink;
 use html5ever::tendril::StrTendril;
+use html5ever::{parse_document, Attribute};
 use markup5ever_rcdom::{Handle, Node, NodeData, RcDom};
 use parser::AttributeSign;
 
@@ -39,77 +39,9 @@ fn filter_matching_nodes(
             }
 
             let selector = css_selectors.get(index).unwrap();
-            let is_matching_selector = selector
-                .to_owned()
-                .name
-                .map_or_else(|| true, |v| v == name.local.to_string());
-            let is_matching_selector_attributes =
-                selector.attributes.iter().fold(true, |acc, c| {
-                    if acc == false {
-                        false
-                    } else {
-                        attrs
-                            .borrow()
-                            .iter()
-                            .flat_map(|attr| {
-                                let v = if attr.name.local.to_string() == "class" {
-                                    attr.value
-                                        .to_string()
-                                        .split_whitespace()
-                                        .map(|s| s.to_string())
-                                        .collect::<Vec<_>>()
-                                } else {
-                                    vec![attr.value.to_string()]
-                                };
 
-                                vec![attr.name.local.as_ref()]
-                                    .repeat(v.len())
-                                    .into_iter()
-                                    .zip(v)
-                                    .collect::<Vec<_>>()
-                            })
-                            .into_iter()
-                            .filter(|v| match &c {
-                                CssSelectorAttribute::ID(id) => {
-                                    (*v).0 == "id" && (*v).1 == id.to_owned()
-                                }
-                                CssSelectorAttribute::Class(class) => {
-                                    (*v).0 == "class" && (*v).1 == class.to_owned()
-                                }
-                                CssSelectorAttribute::Attribute(
-                                    attr,
-                                    AttributeSign::Empty,
-                                    None,
-                                ) => (*v).0 == *attr,
-                                CssSelectorAttribute::Attribute(
-                                    attr,
-                                    AttributeSign::Equal,
-                                    Some(val),
-                                ) => (*v).0 == *attr && (*v).1 == *val,
-                                CssSelectorAttribute::Attribute(
-                                    attr,
-                                    AttributeSign::Contain,
-                                    Some(val),
-                                ) => (*v).0 == *attr && (*v).1.contains(val.as_str()),
-                                CssSelectorAttribute::Attribute(
-                                    attr,
-                                    AttributeSign::BeginWith,
-                                    Some(val),
-                                ) => (*v).0 == *attr && (*v).1.starts_with(val.as_str()),
-                                CssSelectorAttribute::Attribute(
-                                    attr,
-                                    AttributeSign::EndWith,
-                                    Some(val),
-                                ) => (*v).0 == *attr && (*v).1.ends_with(val.as_str()),
-                                _ => false,
-                            })
-                            .collect::<Vec<_>>()
-                            .len()
-                            == 1
-                    }
-                });
-
-            let is_matching_node = is_matching_selector && is_matching_selector_attributes;
+            let is_matching_node = is_matching_selector_name(selector, name.local.as_ref())
+                && is_matching_selector_attributes(selector, attrs);
             let next_index = if is_matching_node { index + 1 } else { index };
 
             if next_index == css_selectors.len() && is_matching_node {
@@ -125,6 +57,71 @@ fn filter_matching_nodes(
         }
         _ => vec![],
     }
+}
+
+fn is_matching_selector_name(selector: &CssSelector, element_name: impl AsRef<str>) -> bool {
+    selector
+        .to_owned()
+        .name
+        .map_or_else(|| true, |v| v.as_str() == element_name.as_ref())
+}
+
+fn is_matching_selector_attributes(
+    selector: &CssSelector,
+    attrs: &RefCell<Vec<Attribute>>,
+) -> bool {
+    selector.attributes.iter().fold(true, |acc, c| {
+        if acc == false {
+            false
+        } else {
+            attrs
+                .borrow()
+                .iter()
+                .flat_map(|attr| {
+                    let v = if attr.name.local.to_string() == "class" {
+                        attr.value
+                            .to_string()
+                            .split_whitespace()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<_>>()
+                    } else {
+                        vec![attr.value.to_string()]
+                    };
+
+                    vec![attr.name.local.as_ref()]
+                        .repeat(v.len())
+                        .into_iter()
+                        .zip(v)
+                        .collect::<Vec<_>>()
+                })
+                .into_iter()
+                .filter(|v| match &c {
+                    CssSelectorAttribute::ID(id) => (*v).0 == "id" && (*v).1 == id.to_owned(),
+                    CssSelectorAttribute::Class(class) => {
+                        (*v).0 == "class" && (*v).1 == class.to_owned()
+                    }
+                    CssSelectorAttribute::Attribute(attr, AttributeSign::Empty, None) => {
+                        (*v).0 == *attr
+                    }
+                    CssSelectorAttribute::Attribute(attr, AttributeSign::Equal, Some(val)) => {
+                        (*v).0 == *attr && (*v).1 == *val
+                    }
+                    CssSelectorAttribute::Attribute(attr, AttributeSign::Contain, Some(val)) => {
+                        (*v).0 == *attr && (*v).1.contains(val.as_str())
+                    }
+                    CssSelectorAttribute::Attribute(attr, AttributeSign::BeginWith, Some(val)) => {
+                        (*v).0 == *attr && (*v).1.starts_with(val.as_str())
+                    }
+                    CssSelectorAttribute::Attribute(attr, AttributeSign::EndWith, Some(val)) => {
+                        (*v).0 == *attr && (*v).1.ends_with(val.as_str())
+                    }
+                    _ => false,
+                })
+                .collect::<Vec<_>>()
+                .len()
+                == 1
+        }
+    })
 }
 
 #[cfg(test)]
