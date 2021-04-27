@@ -13,7 +13,7 @@ use parser::AttributeSign;
 pub fn filter(content: String, selectors: &Vec<parser::CssSelector>) -> Vec<Rc<Node>> {
     let root_node = parse_document(RcDom::default(), Default::default())
         .one(StrTendril::from(content.as_str()));
-    filter_matching_nodes(root_node.document.to_owned(), &selectors, 0, 0)
+    filter_matching_nodes(root_node.document.to_owned(), &selectors, 0, 0, 0)
 }
 
 // Traverses the DOM recursively to filter matching nodes
@@ -22,6 +22,7 @@ fn filter_matching_nodes(
     selectors: &Vec<parser::CssSelector>,
     index: usize,
     position: usize,
+    length: usize,
 ) -> Vec<Rc<Node>> {
     match node.data {
         NodeData::Document => explore_children_nodes(node, selectors, index),
@@ -37,7 +38,7 @@ fn filter_matching_nodes(
             let selector = selectors.get(index).unwrap();
 
             let is_matching_node = is_matching_selector_name(selector, name.local.as_ref())
-                && is_matching_selector_attributes(selector, attrs, position);
+                && is_matching_selector_attributes(selector, attrs, position, length);
             let next_index = if is_matching_node { index + 1 } else { index };
 
             if next_index == selectors.len() && is_matching_node {
@@ -55,12 +56,17 @@ fn explore_children_nodes(
     selectors: &Vec<CssSelector>,
     index: usize,
 ) -> Vec<Rc<Node>> {
-    node.children
-        .take()
+    let ns = node.children.take();
+    let length = ns
         .iter()
+        .filter(|n| matches!(n.data, NodeData::Element { .. }))
+        .collect::<Vec<_>>()
+        .len();
+
+    ns.iter()
         // An internal counter is kept to avoid counting nodes differents than Element
         .fold((vec![], 0), |mut acc, n| {
-            for nc in filter_matching_nodes(n.to_owned(), selectors, index, acc.1) {
+            for nc in filter_matching_nodes(n.to_owned(), selectors, index, acc.1, length) {
                 acc.0.push(nc);
             }
             (
@@ -85,11 +91,13 @@ fn is_matching_selector_attributes(
     selector: &CssSelector,
     attrs: &RefCell<Vec<Attribute>>,
     position: usize,
+    length: usize,
 ) -> bool {
     selector.attributes.iter().all(|c| {
         match &c {
             CssSelectorAttribute::PseudoClass(attr, None) => match attr.as_str() {
                 "first-child" => position == 0,
+                "last-child" => position == length - 1,
                 _ => false,
             },
             _ => {
@@ -382,6 +390,7 @@ mod tests {
                 1,
             ),
             (
+                // Css selector with first-child pseudo class
                 vec![
                     CssSelector {
                         name: Some("div".to_string()),
@@ -401,6 +410,29 @@ mod tests {
                 ],
                 "first_child_selector.html",
                 r#"<div>TEST 1</div>"#,
+                1,
+            ),
+            (
+                // Css selector with last-child pseudo class
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::Equal,
+                            Some("1".to_string()),
+                        )],
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![CssSelectorAttribute::PseudoClass(
+                            "last-child".to_string(),
+                            None,
+                        )],
+                    },
+                ],
+                "last_child_selector.html",
+                r#"<div>TEST 3</div>"#,
                 1,
             ),
             (
