@@ -10,79 +10,69 @@ use markup5ever_rcdom::{Handle, Node, NodeData, RcDom};
 use parser::AttributeSign;
 
 // Filters html nodes matching the given css expression
-pub fn filter(content: String, css_selectors: &Vec<parser::CssSelector>) -> Vec<Rc<Node>> {
+pub fn filter(content: String, selectors: &Vec<parser::CssSelector>) -> Vec<Rc<Node>> {
     let root_node = parse_document(RcDom::default(), Default::default())
         .one(StrTendril::from(content.as_str()));
-    filter_matching_nodes(root_node.document.to_owned(), &css_selectors, 0, 0)
+    filter_matching_nodes(root_node.document.to_owned(), &selectors, 0, 0)
 }
 
 // Traverses the DOM recursively to filter matching nodes
 fn filter_matching_nodes(
     node: Handle,
-    css_selectors: &Vec<parser::CssSelector>,
+    selectors: &Vec<parser::CssSelector>,
     index: usize,
     position: usize,
 ) -> Vec<Rc<Node>> {
     match node.data {
-        NodeData::Document => {
-            node.children
-                .take()
-                .iter()
-                .fold((vec![], 0), |mut acc, n| {
-                    for nc in filter_matching_nodes(n.to_owned(), css_selectors, index, acc.1) {
-                        acc.0.push(nc);
-                    }
-                    (
-                        acc.0,
-                        match n.data {
-                            NodeData::Element { .. } => acc.1 + 1,
-                            _ => acc.1,
-                        },
-                    )
-                })
-                .0
-        }
+        NodeData::Document => explore_children_nodes(node, selectors, index),
         NodeData::Element {
             ref name,
             ref attrs,
             ..
         } => {
-            if index == css_selectors.len() {
+            if index == selectors.len() {
                 return vec![];
             }
 
-            let selector = css_selectors.get(index).unwrap();
+            let selector = selectors.get(index).unwrap();
 
             let is_matching_node = is_matching_selector_name(selector, name.local.as_ref())
                 && (is_matching_selector_attributes(selector, attrs)
                     || is_matching_selector_pseudo_class(selector, attrs, position));
             let next_index = if is_matching_node { index + 1 } else { index };
 
-            if next_index == css_selectors.len() && is_matching_node {
+            if next_index == selectors.len() && is_matching_node {
                 vec![node.to_owned()]
             } else {
-                node.children
-                    .take()
-                    .iter()
-                    .fold((vec![], 0), |mut acc, n| {
-                        for nc in
-                            filter_matching_nodes(n.to_owned(), css_selectors, next_index, acc.1)
-                        {
-                            acc.0.push(nc);
-                        }
-                        (
-                            acc.0,
-                            match n.data {
-                                NodeData::Element { .. } => acc.1 + 1,
-                                _ => acc.1,
-                            },
-                        )
-                    })
-                    .0
+                explore_children_nodes(node, selectors, next_index)
             }
         }
         _ => vec![],
     }
+}
+
+fn explore_children_nodes(
+    node: Rc<Node>,
+    selectors: &Vec<CssSelector>,
+    index: usize,
+) -> Vec<Rc<Node>> {
+    node.children
+        .take()
+        .iter()
+        // An internal counter is kept to avoid counting nodes differents than Element
+        .fold((vec![], 0), |mut acc, n| {
+            for nc in filter_matching_nodes(n.to_owned(), selectors, index, acc.1) {
+                acc.0.push(nc);
+            }
+            (
+                acc.0,
+                match n.data {
+                    NodeData::Element { .. } => acc.1 + 1,
+                    _ => acc.1,
+                },
+            )
+        })
+        .0
 }
 
 fn is_matching_selector_name(selector: &CssSelector, element_name: impl AsRef<str>) -> bool {
