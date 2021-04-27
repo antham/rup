@@ -100,6 +100,10 @@ fn is_matching_selector_attributes(
                 "last-child" => position == length - 1,
                 _ => false,
             },
+            CssSelectorAttribute::PseudoClass(attr, Some(index)) => match attr.as_str() {
+                "nth-child" => position + 1 == index.parse::<usize>().unwrap(),
+                _ => false,
+            },
             _ => {
                 attrs
                     .borrow()
@@ -433,6 +437,29 @@ mod tests {
                 ],
                 "last_child_selector.html",
                 r#"<div>TEST 3</div>"#,
+                1,
+            ),
+            (
+                // Css selector with last-child pseudo class
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::Equal,
+                            Some("1".to_string()),
+                        )],
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![CssSelectorAttribute::PseudoClass(
+                            "nth-child".to_string(),
+                            Some("2".to_string()),
+                        )],
+                    },
+                ],
+                "nth_child_selector.html",
+                r#"<div>TEST 2</div>"#,
                 1,
             ),
             (
