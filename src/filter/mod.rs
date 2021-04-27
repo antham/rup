@@ -37,8 +37,7 @@ fn filter_matching_nodes(
             let selector = selectors.get(index).unwrap();
 
             let is_matching_node = is_matching_selector_name(selector, name.local.as_ref())
-                && (is_matching_selector_attributes(selector, attrs)
-                    || is_matching_selector_pseudo_class(selector, attrs, position));
+                && is_matching_selector_attributes(selector, attrs, position);
             let next_index = if is_matching_node { index + 1 } else { index };
 
             if next_index == selectors.len() && is_matching_node {
@@ -85,72 +84,71 @@ fn is_matching_selector_name(selector: &CssSelector, element_name: impl AsRef<st
 fn is_matching_selector_attributes(
     selector: &CssSelector,
     attrs: &RefCell<Vec<Attribute>>,
-) -> bool {
-    selector.attributes.iter().fold(true, |acc, c| {
-        if acc == false {
-            false
-        } else {
-            attrs
-                .borrow()
-                .iter()
-                .flat_map(|attr| {
-                    let v = if attr.name.local.to_string() == "class" {
-                        attr.value
-                            .to_string()
-                            .split_whitespace()
-                            .map(|s| s.to_string())
-                            .collect::<Vec<_>>()
-                    } else {
-                        vec![attr.value.to_string()]
-                    };
-
-                    vec![attr.name.local.as_ref()]
-                        .repeat(v.len())
-                        .into_iter()
-                        .zip(v)
-                        .collect::<Vec<_>>()
-                })
-                .into_iter()
-                .filter(|v| match &c {
-                    CssSelectorAttribute::ID(id) => (*v).0 == "id" && (*v).1 == id.to_owned(),
-                    CssSelectorAttribute::Class(class) => {
-                        (*v).0 == "class" && (*v).1 == class.to_owned()
-                    }
-                    CssSelectorAttribute::Attribute(attr, AttributeSign::Empty, None) => {
-                        (*v).0 == *attr
-                    }
-                    CssSelectorAttribute::Attribute(attr, AttributeSign::Equal, Some(val)) => {
-                        (*v).0 == *attr && (*v).1 == *val
-                    }
-                    CssSelectorAttribute::Attribute(attr, AttributeSign::Contain, Some(val)) => {
-                        (*v).0 == *attr && (*v).1.contains(val.as_str())
-                    }
-                    CssSelectorAttribute::Attribute(attr, AttributeSign::BeginWith, Some(val)) => {
-                        (*v).0 == *attr && (*v).1.starts_with(val.as_str())
-                    }
-                    CssSelectorAttribute::Attribute(attr, AttributeSign::EndWith, Some(val)) => {
-                        (*v).0 == *attr && (*v).1.ends_with(val.as_str())
-                    }
-                    _ => false,
-                })
-                .collect::<Vec<_>>()
-                .len()
-                == 1
-        }
-    })
-}
-
-fn is_matching_selector_pseudo_class(
-    selector: &CssSelector,
-    _attrs: &RefCell<Vec<Attribute>>,
     position: usize,
 ) -> bool {
-    selector.attributes.iter().any(|c| match &c {
-        CssSelectorAttribute::PseudoClass(attr, None) => match attr.as_str() {
-            "first-child" => position == 0,
-            _ => false,
-        },
-        _ => false,
+    selector.attributes.iter().all(|c| {
+        match &c {
+            CssSelectorAttribute::PseudoClass(attr, None) => match attr.as_str() {
+                "first-child" => position == 0,
+                _ => false,
+            },
+            _ => {
+                attrs
+                    .borrow()
+                    .iter()
+                    .flat_map(|attr| {
+                        // Classes are extracted from the string class attribute
+                        // to have one attribute per vec element like the rest of attributes
+                        let v = if attr.name.local.to_string() == "class" {
+                            attr.value
+                                .to_string()
+                                .split_whitespace()
+                                .map(|s| s.to_string())
+                                .collect::<Vec<_>>()
+                        } else {
+                            vec![attr.value.to_string()]
+                        };
+
+                        vec![attr.name.local.as_ref()]
+                            .repeat(v.len())
+                            .into_iter()
+                            .zip(v)
+                            .collect::<Vec<_>>()
+                    })
+                    .into_iter()
+                    .filter(|v| match &c {
+                        CssSelectorAttribute::ID(id) => (*v).0 == "id" && (*v).1 == id.to_owned(),
+                        CssSelectorAttribute::Class(class) => {
+                            (*v).0 == "class" && (*v).1 == class.to_owned()
+                        }
+                        CssSelectorAttribute::Attribute(attr, AttributeSign::Empty, None) => {
+                            (*v).0 == *attr
+                        }
+                        CssSelectorAttribute::Attribute(attr, AttributeSign::Equal, Some(val)) => {
+                            (*v).0 == *attr && (*v).1 == *val
+                        }
+                        CssSelectorAttribute::Attribute(
+                            attr,
+                            AttributeSign::Contain,
+                            Some(val),
+                        ) => (*v).0 == *attr && (*v).1.contains(val.as_str()),
+                        CssSelectorAttribute::Attribute(
+                            attr,
+                            AttributeSign::BeginWith,
+                            Some(val),
+                        ) => (*v).0 == *attr && (*v).1.starts_with(val.as_str()),
+                        CssSelectorAttribute::Attribute(
+                            attr,
+                            AttributeSign::EndWith,
+                            Some(val),
+                        ) => (*v).0 == *attr && (*v).1.ends_with(val.as_str()),
+                        _ => false,
+                    })
+                    .collect::<Vec<_>>()
+                    .len()
+                    == 1
+            }
+        }
     })
 }
 
