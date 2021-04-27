@@ -54,6 +54,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                 }
                 nodes.push(current_node);
                 current_node = CssSelector::default();
+                previous_char = c;
                 continue;
             }
             '#' => {
@@ -61,6 +62,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                     current_node.attributes.push(current_node_attribute);
                 }
                 current_node_attribute = CssSelectorAttribute::ID(String::new());
+                previous_char = c;
                 continue;
             }
             '.' => {
@@ -68,6 +70,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                     current_node.attributes.push(current_node_attribute);
                 }
                 current_node_attribute = CssSelectorAttribute::Class(String::new());
+                previous_char = c;
                 continue;
             }
             '[' => {
@@ -76,6 +79,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                 }
                 current_node_attribute =
                     CssSelectorAttribute::Attribute(String::new(), AttributeSign::Empty, None);
+                previous_char = c;
                 continue;
             }
             ':' => {
@@ -83,6 +87,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                     current_node.attributes.push(current_node_attribute);
                 }
                 current_node_attribute = CssSelectorAttribute::PseudoClass(String::new(), None);
+                previous_char = c;
                 continue;
             }
             _ => (),
@@ -126,7 +131,10 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
             CssSelectorAttribute::Attribute(ref left_operand, ref sign, ref right_operand) => {
                 match c {
                     // This mark the end of an attribute
-                    ']' => continue,
+                    ']' => {
+                        previous_char = c;
+                        continue;
+                    }
                     '=' if previous_char == '^' && sign == &AttributeSign::Empty => {
                         current_node_attribute = CssSelectorAttribute::Attribute(
                             left_operand.to_owned(),
@@ -168,7 +176,10 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                             None,
                         )
                     }
-                    '\'' | '"' if sign != &AttributeSign::Empty => continue,
+                    '\'' | '"' if sign != &AttributeSign::Empty => {
+                        previous_char = c;
+                        continue;
+                    }
                     _ if sign != &AttributeSign::Empty => {
                         current_node_attribute = CssSelectorAttribute::Attribute(
                             left_operand.to_owned(),
