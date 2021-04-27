@@ -13,7 +13,7 @@ use parser::AttributeSign;
 pub fn filter(content: String, css_selectors: &Vec<parser::CssSelector>) -> Vec<Rc<Node>> {
     let root_node = parse_document(RcDom::default(), Default::default())
         .one(StrTendril::from(content.as_str()));
-    filter_matching_nodes(root_node.document.to_owned(), &css_selectors, 0)
+    filter_matching_nodes(root_node.document.to_owned(), &css_selectors, 0, 0)
 }
 
 // Traverses the DOM recursively to filter matching nodes
@@ -21,14 +21,27 @@ fn filter_matching_nodes(
     node: Handle,
     css_selectors: &Vec<parser::CssSelector>,
     index: usize,
+    position: usize,
 ) -> Vec<Rc<Node>> {
     match node.data {
-        NodeData::Document => node.children.take().iter().fold(vec![], |mut acc, n| {
-            for nc in filter_matching_nodes(n.to_owned(), css_selectors, index) {
-                acc.push(nc);
-            }
-            acc
-        }),
+        NodeData::Document => {
+            node.children
+                .take()
+                .iter()
+                .fold((vec![], 0), |mut acc, n| {
+                    for nc in filter_matching_nodes(n.to_owned(), css_selectors, index, acc.1) {
+                        acc.0.push(nc);
+                    }
+                    (
+                        acc.0,
+                        match n.data {
+                            NodeData::Element { .. } => acc.1 + 1,
+                            _ => acc.1,
+                        },
+                    )
+                })
+                .0
+        }
         NodeData::Element {
             ref name,
             ref attrs,
@@ -41,18 +54,31 @@ fn filter_matching_nodes(
             let selector = css_selectors.get(index).unwrap();
 
             let is_matching_node = is_matching_selector_name(selector, name.local.as_ref())
-                && is_matching_selector_attributes(selector, attrs);
+                && (is_matching_selector_attributes(selector, attrs)
+                    || is_matching_selector_pseudo_class(selector, attrs, position));
             let next_index = if is_matching_node { index + 1 } else { index };
 
             if next_index == css_selectors.len() && is_matching_node {
                 vec![node.to_owned()]
             } else {
-                node.children.take().iter().fold(vec![], |mut acc, n| {
-                    for nc in filter_matching_nodes(n.to_owned(), css_selectors, next_index) {
-                        acc.push(nc);
-                    }
-                    acc
-                })
+                node.children
+                    .take()
+                    .iter()
+                    .fold((vec![], 0), |mut acc, n| {
+                        for nc in
+                            filter_matching_nodes(n.to_owned(), css_selectors, next_index, acc.1)
+                        {
+                            acc.0.push(nc);
+                        }
+                        (
+                            acc.0,
+                            match n.data {
+                                NodeData::Element { .. } => acc.1 + 1,
+                                _ => acc.1,
+                            },
+                        )
+                    })
+                    .0
             }
         }
         _ => vec![],
@@ -121,6 +147,20 @@ fn is_matching_selector_attributes(
                 .len()
                 == 1
         }
+    })
+}
+
+fn is_matching_selector_pseudo_class(
+    selector: &CssSelector,
+    _attrs: &RefCell<Vec<Attribute>>,
+    position: usize,
+) -> bool {
+    selector.attributes.iter().any(|c| match &c {
+        CssSelectorAttribute::PseudoClass(attr, None) => match attr.as_str() {
+            "first-child" => position == 0,
+            _ => false,
+        },
+        _ => false,
     })
 }
 
@@ -351,6 +391,28 @@ mod tests {
                 ],
                 "multi_attributes.html",
                 r#"<span data-attr="test" class="test1 test2 test3">TEST 1</span>"#,
+                1,
+            ),
+            (
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::Equal,
+                            Some("1".to_string()),
+                        )],
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![CssSelectorAttribute::PseudoClass(
+                            "first-child".to_string(),
+                            None,
+                        )],
+                    },
+                ],
+                "first_child_selector.html",
+                r#"<div>TEST 1</div>"#,
                 1,
             ),
             (
