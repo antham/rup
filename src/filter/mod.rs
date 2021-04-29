@@ -3,16 +3,16 @@ use std::{cell::RefCell, rc::Rc};
 use crate::parser::{CssSelector, CssSelectorAttribute};
 
 use super::parser;
-use html5ever::tendril::stream::TendrilSink;
-use html5ever::tendril::StrTendril;
+use html5ever::tendril::{stream::TendrilSink, ByteTendril};
 use html5ever::{parse_document, Attribute};
 use markup5ever_rcdom::{Handle, Node, NodeData, RcDom};
 use parser::AttributeSign;
 
 // Filters html nodes matching the given css expression
-pub fn filter(content: String, selectors: &Vec<parser::CssSelector>) -> Vec<Rc<Node>> {
+pub fn filter(content: Vec<u8>, selectors: &Vec<parser::CssSelector>) -> Vec<Rc<Node>> {
     let root_node = parse_document(RcDom::default(), Default::default())
-        .one(StrTendril::from(content.as_str()));
+        .from_utf8()
+        .one(ByteTendril::from(content.as_slice()));
     filter_matching_nodes(root_node.document.to_owned(), &selectors, 0, 0, 0)
 }
 
@@ -485,7 +485,7 @@ mod tests {
                 env::var("CARGO_MANIFEST_DIR").unwrap() + "/src/filter/" + filename,
             )
             .unwrap();
-            let nodes = filter(content, &css_selectors);
+            let nodes = filter(content.into_bytes(), &css_selectors);
 
             assert_eq!(nodes.len(), matching_node_count);
 
