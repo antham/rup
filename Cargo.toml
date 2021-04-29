@@ -15,5 +15,5 @@ bytebuffer = "0.2.1"
 regex = "1"
 
 [dev-dependencies]
-assert_cmd = "0.10"
+assert_cmd = "1.0"
 predicates = "1"
