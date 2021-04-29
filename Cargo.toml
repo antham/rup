@@ -10,7 +10,7 @@ edition = "2018"
 clap = "2.33.3"
 html5ever = "0.25"
 markup5ever_rcdom = "0.1"
-markup5ever = "0.10.0"
+markup5ever = "0.10.1"
 bytebuffer = "0.2.1"
 regex = "1"
 
