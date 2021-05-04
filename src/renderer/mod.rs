@@ -133,7 +133,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
         if !self.render_text_only {
             self.buffer.push_str(
                 self.colorizer
-                    .colorize(format!("<{}", tagname(&name).to_string()), Color::Magenta)
+                    .colorize(format!("<{}", tagname(&name).trim()), Color::Magenta)
                     .as_str(),
             );
             for (name, value) in attrs {
@@ -164,15 +164,15 @@ impl<'b> Serializer for HtmlSerializer<'b> {
 
                 self.buffer.push_str(
                     self.colorizer
-                        .colorize(name.local.to_string(), Color::Yellow)
-                        .as_str(),
+                        .colorize(name.local.trim(), Color::Yellow)
+                        .trim(),
                 );
                 self.buffer
                     .push_str(self.colorizer.colorize("=\"", Color::Magenta).as_ref());
                 let v = self
                     .colorizer
-                    .colorize(self.write_escaped(value, true), Color::Green);
-                self.buffer.push_str(v.to_string().as_ref());
+                    .colorize(self.write_escaped(value.trim(), true), Color::Green);
+                self.buffer.push_str(v.to_string().as_str());
                 self.buffer
                     .push_str(self.colorizer.colorize("\"", Color::Magenta).as_ref());
             }
@@ -224,7 +224,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
         if !self.render_text_only {
             self.buffer.push_str(
                 self.colorizer
-                    .colorize(format!("</{}>", tagname(&name).to_string()), Color::Magenta)
+                    .colorize(format!("</{}>", tagname(&name).trim()), Color::Magenta)
                     .as_ref(),
             );
         }
@@ -257,9 +257,9 @@ impl<'b> Serializer for HtmlSerializer<'b> {
 
         if escape {
             let v = self.write_escaped(text, false);
-            self.buffer.push_str(v.to_string().trim());
+            self.buffer.push_str(v.trim());
         } else {
-            self.buffer.push_str(text.to_string().trim());
+            self.buffer.push_str(text.trim());
         }
 
         if self.render_text_only {
@@ -273,7 +273,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
         if !self.render_text_only {
             self.buffer.push_str(
                 self.colorizer
-                    .colorize(format!("<!--{}-->", text), Color::Blue)
+                    .colorize(format!("<!--{}-->", text.trim()), Color::Blue)
                     .as_ref(),
             );
         }
@@ -284,7 +284,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
         if !self.render_text_only {
             self.buffer.push_str(
                 self.colorizer
-                    .colorize(format!("<!DOCTYPE {}>", name), Color::Blue)
+                    .colorize(format!("<!DOCTYPE {}>", name.trim()), Color::Blue)
                     .as_ref(),
             );
         }
@@ -295,7 +295,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
         if !self.render_text_only {
             self.buffer.push_str(
                 self.colorizer
-                    .colorize(format!("<?{} {}>", target, data), Color::Blue)
+                    .colorize(format!("<?{} {}>", target.trim(), data.trim()), Color::Blue)
                     .as_ref(),
             );
         }
