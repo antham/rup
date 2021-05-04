@@ -11,7 +11,11 @@ use markup5ever_rcdom::{Node, SerializableHandle};
 use regex::RegexBuilder;
 
 // Output a node list as a list of html markup strings
-pub fn serialize_nodes(is_color_enabled: bool, nodes: Vec<Rc<Node>>) -> io::Result<String> {
+pub fn serialize_nodes(
+    is_color_enabled: bool,
+    render_text_only: bool,
+    nodes: Vec<Rc<Node>>,
+) -> io::Result<String> {
     nodes.iter().fold(Ok(String::new()), |acc, node| {
         let mut buffer = String::new();
         let serializer = SerializableHandle::from(node.to_owned());
@@ -23,6 +27,7 @@ pub fn serialize_nodes(is_color_enabled: bool, nodes: Vec<Rc<Node>>) -> io::Resu
 
         let mut ser: HtmlSerializer = HtmlSerializer::new(
             Colorizer::new(is_color_enabled),
+            render_text_only,
             &mut buffer,
             opts.to_owned(),
         );
@@ -35,7 +40,7 @@ pub fn serialize_nodes(is_color_enabled: bool, nodes: Vec<Rc<Node>>) -> io::Resu
                 + RegexBuilder::new(r">\s+<")
                     .build()
                     .unwrap()
-                    .replace_all(buffer.as_str(), "><")
+                    .replace_all(buffer.as_str().trim(), "><")
                     .replace("\n", "")
                     .as_ref()),
             e => e,
@@ -52,19 +57,26 @@ struct ElemInfo {
 // This serializer is cloned from https://github.com/servo/html5ever/blob/57eb334c0ffccc6f88d563419f0fbeef6ff5741c/html5ever/src/serialize/mod.rs#L77
 pub struct HtmlSerializer<'a> {
     colorizer: Colorizer,
+    render_text_only: bool,
     opts: SerializeOpts,
     stack: Vec<ElemInfo>,
     buffer: &'a mut String,
 }
 
 impl<'a> HtmlSerializer<'a> {
-    pub fn new(colorizer: Colorizer, buffer: &'a mut String, opts: SerializeOpts) -> Self {
+    pub fn new(
+        colorizer: Colorizer,
+        render_text_only: bool,
+        buffer: &'a mut String,
+        opts: SerializeOpts,
+    ) -> Self {
         let html_name = match opts.traversal_scope {
             TraversalScope::IncludeNode | TraversalScope::ChildrenOnly(None) => None,
             TraversalScope::ChildrenOnly(Some(ref n)) => Some(tagname(n)),
         };
         HtmlSerializer {
             colorizer,
+            render_text_only,
             opts,
             stack: vec![ElemInfo {
                 html_name,
@@ -117,52 +129,56 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             });
             return Ok(());
         }
-        self.buffer.push_str(
-            self.colorizer
-                .colorize(format!("<{}", tagname(&name).to_string()), Color::Magenta)
-                .as_str(),
-        );
-        for (name, value) in attrs {
-            self.buffer.push_str(" ");
-            match name.ns {
-                ns!() => (),
-                ns!(xml) => self
-                    .buffer
-                    .push_str(self.colorizer.colorize("xml:", Color::Magenta).as_ref()),
-                ns!(xmlns) => {
-                    if name.local != local_name!("xmlns") {
-                        self.buffer
-                            .push_str(self.colorizer.colorize("xmlns:", Color::Magenta).as_ref());
-                    }
-                }
-                ns!(xlink) => self
-                    .buffer
-                    .push_str(self.colorizer.colorize("xlink:", Color::Magenta).as_ref()),
-                _ => {
-                    self.buffer.push_str(
-                        self.colorizer
-                            .colorize("unknown_namespace:", Color::Magenta)
-                            .as_ref(),
-                    );
-                }
-            }
 
+        if !self.render_text_only {
             self.buffer.push_str(
                 self.colorizer
-                    .colorize(name.local.to_string(), Color::Yellow)
+                    .colorize(format!("<{}", tagname(&name).to_string()), Color::Magenta)
                     .as_str(),
             );
+            for (name, value) in attrs {
+                self.buffer.push_str(" ");
+                match name.ns {
+                    ns!() => (),
+                    ns!(xml) => self
+                        .buffer
+                        .push_str(self.colorizer.colorize("xml:", Color::Magenta).as_ref()),
+                    ns!(xmlns) => {
+                        if name.local != local_name!("xmlns") {
+                            self.buffer.push_str(
+                                self.colorizer.colorize("xmlns:", Color::Magenta).as_ref(),
+                            );
+                        }
+                    }
+                    ns!(xlink) => self
+                        .buffer
+                        .push_str(self.colorizer.colorize("xlink:", Color::Magenta).as_ref()),
+                    _ => {
+                        self.buffer.push_str(
+                            self.colorizer
+                                .colorize("unknown_namespace:", Color::Magenta)
+                                .as_ref(),
+                        );
+                    }
+                }
+
+                self.buffer.push_str(
+                    self.colorizer
+                        .colorize(name.local.to_string(), Color::Yellow)
+                        .as_str(),
+                );
+                self.buffer
+                    .push_str(self.colorizer.colorize("=\"", Color::Magenta).as_ref());
+                let v = self
+                    .colorizer
+                    .colorize(self.write_escaped(value, true), Color::Green);
+                self.buffer.push_str(v.to_string().as_ref());
+                self.buffer
+                    .push_str(self.colorizer.colorize("\"", Color::Magenta).as_ref());
+            }
             self.buffer
-                .push_str(self.colorizer.colorize("=\"", Color::Magenta).as_ref());
-            let v = self
-                .colorizer
-                .colorize(self.write_escaped(value, true), Color::Green);
-            self.buffer.push_str(v.to_string().as_ref());
-            self.buffer
-                .push_str(self.colorizer.colorize("\"", Color::Magenta).as_ref());
+                .push_str(self.colorizer.colorize(">", Color::Magenta).as_ref());
         }
-        self.buffer
-            .push_str(self.colorizer.colorize(">", Color::Magenta).as_ref());
 
         let ignore_children = name.ns == ns!(html)
             && match name.local {
@@ -205,11 +221,14 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             return Ok(());
         }
 
-        self.buffer.push_str(
-            self.colorizer
-                .colorize(format!("</{}>", tagname(&name).to_string()), Color::Magenta)
-                .as_ref(),
-        );
+        if !self.render_text_only {
+            self.buffer.push_str(
+                self.colorizer
+                    .colorize(format!("</{}>", tagname(&name).to_string()), Color::Magenta)
+                    .as_ref(),
+            );
+        }
+
         Ok(())
     }
 
@@ -228,6 +247,14 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             _ => true,
         };
 
+        if self.render_text_only
+            && (text.trim().is_empty()
+                || Some(local_name!("style")) == self.parent().html_name
+                || Some(local_name!("script")) == self.parent().html_name)
+        {
+            return Ok(());
+        }
+
         if escape {
             let v = self.write_escaped(text, false);
             self.buffer.push_str(v.to_string().trim());
@@ -235,33 +262,43 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             self.buffer.push_str(text.to_string().trim());
         }
 
+        if self.render_text_only {
+            self.buffer.push_str(" ");
+        }
+
         Ok(())
     }
 
     fn write_comment(&mut self, text: &str) -> io::Result<()> {
-        self.buffer.push_str(
-            self.colorizer
-                .colorize(format!("<!--{}-->", text), Color::Blue)
-                .as_ref(),
-        );
+        if !self.render_text_only {
+            self.buffer.push_str(
+                self.colorizer
+                    .colorize(format!("<!--{}-->", text), Color::Blue)
+                    .as_ref(),
+            );
+        }
         Ok(())
     }
 
     fn write_doctype(&mut self, name: &str) -> io::Result<()> {
-        self.buffer.push_str(
-            self.colorizer
-                .colorize(format!("<!DOCTYPE {}>", name), Color::Blue)
-                .as_ref(),
-        );
+        if !self.render_text_only {
+            self.buffer.push_str(
+                self.colorizer
+                    .colorize(format!("<!DOCTYPE {}>", name), Color::Blue)
+                    .as_ref(),
+            );
+        }
         Ok(())
     }
 
     fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
-        self.buffer.push_str(
-            self.colorizer
-                .colorize(format!("<?{} {}>", target, data), Color::Blue)
-                .as_ref(),
-        );
+        if !self.render_text_only {
+            self.buffer.push_str(
+                self.colorizer
+                    .colorize(format!("<?{} {}>", target, data), Color::Blue)
+                    .as_ref(),
+            );
+        }
         Ok(())
     }
 }
@@ -306,46 +343,67 @@ mod tests {
 
     #[test]
     fn serialize_nodes() {
-        let scenarios = vec![
-            (
+        struct Scenario {
+            filename: &'static str,
+            selector: &'static str,
+            enable_colors: bool,
+            render_text_only: bool,
+        }
+
+        let scenarios: Vec<Scenario> = vec![
+            Scenario {
                 // Remove all extra spaces
-                "document_with_space",
-                "html",
-                false,
-            ),
-            (
+                filename: "document_with_space",
+                selector: "html",
+                enable_colors: false,
+                render_text_only: false,
+            },
+            Scenario {
                 // Extract one element per line
-                "extract_markup",
-                "div",
-                false,
-            ),
-            (
+                filename: "extract_markup",
+                selector: "div",
+                enable_colors: false,
+                render_text_only: false,
+            },
+            Scenario {
                 // Enable colors
-                "enable_colors",
-                "div",
-                true,
-            ),
+                filename: "enable_colors",
+                selector: "div",
+                enable_colors: true,
+                render_text_only: false,
+            },
+            Scenario {
+                // Text only
+                filename: "text_only",
+                selector: "html",
+                enable_colors: false,
+                render_text_only: true,
+            },
         ];
 
         for s in scenarios {
             let given_html =
-                fs::read(env::var("CARGO_MANIFEST_DIR").unwrap() + "/src/renderer/" + s.0).unwrap();
+                fs::read(env::var("CARGO_MANIFEST_DIR").unwrap() + "/src/renderer/" + s.filename)
+                    .unwrap();
 
             let expected_html = fs::read_to_string(
-                env::var("CARGO_MANIFEST_DIR").unwrap() + "/src/renderer/" + s.0 + "_expected",
+                env::var("CARGO_MANIFEST_DIR").unwrap()
+                    + "/src/renderer/"
+                    + s.filename
+                    + "_expected",
             )
             .unwrap();
 
             let nodes = filter(
                 given_html,
                 &vec![CssSelector {
-                    name: Some(s.1.to_string()),
+                    name: Some(s.selector.to_string()),
                     attributes: vec![],
                 }],
             );
 
             debug_assert_eq!(
-                renderer::serialize_nodes(s.2, nodes)
+                renderer::serialize_nodes(s.enable_colors, s.render_text_only, nodes)
                     .unwrap()
                     .replace("\u{1b}", "\\u{1b}"),
                 expected_html
