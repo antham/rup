@@ -10,21 +10,19 @@ use markup5ever::{local_name, namespace_url, ns};
 use markup5ever_rcdom::{Node, SerializableHandle};
 use regex::RegexBuilder;
 
+#[derive(Clone, Copy)]
+pub struct SerializeSettings {
+    pub is_color_enabled: bool,
+    pub render_text_only: bool,
+}
+
 // Output a node list as a list of html markup strings
-pub fn serialize_nodes(
-    is_color_enabled: bool,
-    render_text_only: bool,
-    nodes: Vec<Rc<Node>>,
-) -> io::Result<String> {
+pub fn serialize_nodes(settings: SerializeSettings, nodes: Vec<Rc<Node>>) -> io::Result<String> {
     nodes.iter().fold(Ok(String::new()), |acc, node| {
         let mut buffer = String::new();
         let serializer = SerializableHandle::from(node.to_owned());
 
-        let mut ser: HtmlSerializer = HtmlSerializer::new(
-            Colorizer::new(is_color_enabled),
-            render_text_only,
-            &mut buffer,
-        );
+        let mut ser: HtmlSerializer = HtmlSerializer::new(settings, &mut buffer);
         serializer.serialize(&mut ser, TraversalScope::IncludeNode)?;
 
         match acc {
@@ -51,16 +49,16 @@ struct ElemInfo {
 // This serializer is cloned from https://github.com/servo/html5ever/blob/57eb334c0ffccc6f88d563419f0fbeef6ff5741c/html5ever/src/serialize/mod.rs#L77
 pub struct HtmlSerializer<'a> {
     colorizer: Colorizer,
-    render_text_only: bool,
+    settings: SerializeSettings,
     stack: Vec<ElemInfo>,
     buffer: &'a mut String,
 }
 
 impl<'a> HtmlSerializer<'a> {
-    pub fn new(colorizer: Colorizer, render_text_only: bool, buffer: &'a mut String) -> Self {
+    pub fn new(settings: SerializeSettings, buffer: &'a mut String) -> Self {
         HtmlSerializer {
-            colorizer,
-            render_text_only,
+            colorizer: Colorizer::new(settings.is_color_enabled),
+            settings,
             stack: vec![ElemInfo {
                 html_name: None,
                 ignore_children: false,
@@ -109,7 +107,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             return Ok(());
         }
 
-        if !self.render_text_only {
+        if !self.settings.render_text_only {
             self.buffer.push_str(
                 self.colorizer
                     .colorize(format!("<{}", tagname(&name).trim()), Color::Magenta)
@@ -199,7 +197,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             return Ok(());
         }
 
-        if !self.render_text_only {
+        if !self.settings.render_text_only {
             self.buffer.push_str(
                 self.colorizer
                     .colorize(format!("</{}>", tagname(&name).trim()), Color::Magenta)
@@ -223,7 +221,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             _ => true,
         };
 
-        if self.render_text_only
+        if self.settings.render_text_only
             && (text.trim().is_empty()
                 || Some(local_name!("style")) == self.parent().html_name
                 || Some(local_name!("script")) == self.parent().html_name)
@@ -238,7 +236,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             self.buffer.push_str(text.trim());
         }
 
-        if self.render_text_only {
+        if self.settings.render_text_only {
             self.buffer.push_str(" ");
         }
 
@@ -246,7 +244,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
     }
 
     fn write_comment(&mut self, text: &str) -> io::Result<()> {
-        if !self.render_text_only {
+        if !self.settings.render_text_only {
             self.buffer.push_str(
                 self.colorizer
                     .colorize(format!("<!--{}-->", text.trim()), Color::Blue)
@@ -257,7 +255,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
     }
 
     fn write_doctype(&mut self, name: &str) -> io::Result<()> {
-        if !self.render_text_only {
+        if !self.settings.render_text_only {
             self.buffer.push_str(
                 self.colorizer
                     .colorize(format!("<!DOCTYPE {}>", name.trim()), Color::Blue)
@@ -268,7 +266,7 @@ impl<'b> Serializer for HtmlSerializer<'b> {
     }
 
     fn write_processing_instruction(&mut self, target: &str, data: &str) -> io::Result<()> {
-        if !self.render_text_only {
+        if !self.settings.render_text_only {
             self.buffer.push_str(
                 self.colorizer
                     .colorize(format!("<?{} {}>", target.trim(), data.trim()), Color::Blue)
@@ -313,17 +311,16 @@ impl Colorizer {
 mod tests {
     use std::{env, fs};
 
-    use crate::filter::filter;
     use crate::parser::CssSelector;
     use crate::renderer;
+    use crate::{filter::filter, renderer::SerializeSettings};
 
     #[test]
     fn serialize_nodes() {
         struct Scenario {
             filename: &'static str,
             selector: &'static str,
-            enable_colors: bool,
-            render_text_only: bool,
+            settings: SerializeSettings,
         }
 
         let scenarios: Vec<Scenario> = vec![
@@ -331,29 +328,37 @@ mod tests {
                 // Remove all extra spaces
                 filename: "document_with_space",
                 selector: "html",
-                enable_colors: false,
-                render_text_only: false,
+                settings: SerializeSettings {
+                    is_color_enabled: false,
+                    render_text_only: false,
+                },
             },
             Scenario {
                 // Extract one element per line
                 filename: "extract_markup",
                 selector: "div",
-                enable_colors: false,
-                render_text_only: false,
+                settings: SerializeSettings {
+                    is_color_enabled: false,
+                    render_text_only: false,
+                },
             },
             Scenario {
                 // Enable colors
                 filename: "enable_colors",
                 selector: "div",
-                enable_colors: true,
-                render_text_only: false,
+                settings: SerializeSettings {
+                    is_color_enabled: true,
+                    render_text_only: false,
+                },
             },
             Scenario {
                 // Text only
                 filename: "text_only",
                 selector: "html",
-                enable_colors: false,
-                render_text_only: true,
+                settings: SerializeSettings {
+                    is_color_enabled: false,
+                    render_text_only: true,
+                },
             },
         ];
 
@@ -379,7 +384,7 @@ mod tests {
             );
 
             debug_assert_eq!(
-                renderer::serialize_nodes(s.enable_colors, s.render_text_only, nodes)
+                renderer::serialize_nodes(s.settings, nodes)
                     .unwrap()
                     .replace("\u{1b}", "\\u{1b}"),
                 expected_html
