@@ -2,7 +2,7 @@ use std::{io, rc::Rc};
 
 use colored::*;
 use html5ever::{
-    serialize::{AttrRef, Serialize, SerializeOpts, Serializer, TraversalScope},
+    serialize::{AttrRef, Serialize, Serializer, TraversalScope},
     QualName,
 };
 use markup5ever::LocalName;
@@ -19,19 +19,13 @@ pub fn serialize_nodes(
     nodes.iter().fold(Ok(String::new()), |acc, node| {
         let mut buffer = String::new();
         let serializer = SerializableHandle::from(node.to_owned());
-        let opts = SerializeOpts {
-            scripting_enabled: true,
-            traversal_scope: TraversalScope::IncludeNode,
-            create_missing_parent: false,
-        };
 
         let mut ser: HtmlSerializer = HtmlSerializer::new(
             Colorizer::new(is_color_enabled),
             render_text_only,
             &mut buffer,
-            opts.to_owned(),
         );
-        serializer.serialize(&mut ser, opts.traversal_scope)?;
+        serializer.serialize(&mut ser, TraversalScope::IncludeNode)?;
 
         match acc {
             // Every extra whitespaces is removed and a new line is added to separate every node
@@ -58,28 +52,17 @@ struct ElemInfo {
 pub struct HtmlSerializer<'a> {
     colorizer: Colorizer,
     render_text_only: bool,
-    opts: SerializeOpts,
     stack: Vec<ElemInfo>,
     buffer: &'a mut String,
 }
 
 impl<'a> HtmlSerializer<'a> {
-    pub fn new(
-        colorizer: Colorizer,
-        render_text_only: bool,
-        buffer: &'a mut String,
-        opts: SerializeOpts,
-    ) -> Self {
-        let html_name = match opts.traversal_scope {
-            TraversalScope::IncludeNode | TraversalScope::ChildrenOnly(None) => None,
-            TraversalScope::ChildrenOnly(Some(ref n)) => Some(tagname(n)),
-        };
+    pub fn new(colorizer: Colorizer, render_text_only: bool, buffer: &'a mut String) -> Self {
         HtmlSerializer {
             colorizer,
             render_text_only,
-            opts,
             stack: vec![ElemInfo {
-                html_name,
+                html_name: None,
                 ignore_children: false,
             }],
             buffer,
@@ -88,11 +71,7 @@ impl<'a> HtmlSerializer<'a> {
 
     fn parent(&mut self) -> &mut ElemInfo {
         if self.stack.len() == 0 {
-            if self.opts.create_missing_parent {
-                self.stack.push(Default::default());
-            } else {
-                panic!("no parent ElemInfo")
-            }
+            self.stack.push(Default::default());
         }
         self.stack.last_mut().unwrap()
     }
@@ -214,7 +193,6 @@ impl<'b> Serializer for HtmlSerializer<'b> {
     fn end_elem(&mut self, name: QualName) -> io::Result<()> {
         let info = match self.stack.pop() {
             Some(info) => info,
-            None if self.opts.create_missing_parent => Default::default(),
             _ => panic!("no ElemInfo"),
         };
         if info.ignore_children {
@@ -240,10 +218,8 @@ impl<'b> Serializer for HtmlSerializer<'b> {
             | Some(local_name!("iframe"))
             | Some(local_name!("noembed"))
             | Some(local_name!("noframes"))
-            | Some(local_name!("plaintext")) => false,
-
-            Some(local_name!("noscript")) => !self.opts.scripting_enabled,
-
+            | Some(local_name!("plaintext"))
+            | Some(local_name!("noscript")) => false,
             _ => true,
         };
 
