@@ -1,0 +1,31 @@
+<html>
+
+<head>
+    <script
+        type="application/javascript">!function (i, n) { void 0 !== i.addEventListener && void 0 !== i.hidden && (n.liVisibilityChangeListener = function () { i.hidden && (n.liHasWindowHidden = !0) }, i.addEventListener("visibilitychange", n.liVisibilityChangeListener)) }(document, window);</script>
+    <style>
+        a {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="identifier">TEST1<div class="cl1">TEST 2</div>
+        <div class="cl2">TEST 3</div>
+        <div data-value="value1"></div>
+    </div>
+    <div>TEST4</div>
+    <div>TEST5
+        <!-- TEST-->
+        <div>TEST4<div>TEST6<div class="cl3">TEST7</div>
+                <div data-id="a"></div>
+            </div>
+        </div>
+    </div>
+    <div class="cl4">TEST8<div class="cl5">TEST 9</div>
+        <div data-id="b"></div>
+    </div>
+</body>
+
+</html>
