@@ -38,7 +38,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
     let mut current_node = CssSelector::default();
     let mut current_node_attribute = CssSelectorAttribute::Empty;
     let mut nodes: Vec<CssSelector> = vec![];
-    let mut previous_char: char = '°';
+    let mut previous_char = char::default();
 
     // All over the for, the continue statement is used to not record the character being processed
     for c in expression.chars() {
