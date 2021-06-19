@@ -33,7 +33,7 @@ pub struct CssSelector {
     pub attributes: Vec<CssSelectorAttribute>,
 }
 
-/// Parse a string made of css selectors
+// Parse a string made of css selectors
 pub fn parse(expression: String) -> Vec<CssSelector> {
     let mut current_node = CssSelector::default();
     let mut current_node_attribute = CssSelectorAttribute::Empty;
@@ -57,7 +57,11 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                 previous_char = c;
                 continue;
             }
-            '#' => {
+            '#' if !matches!(
+                current_node_attribute,
+                CssSelectorAttribute::Attribute { .. }
+            ) =>
+            {
                 if CssSelectorAttribute::Empty != current_node_attribute {
                     current_node.attributes.push(current_node_attribute);
                 }
@@ -65,7 +69,11 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                 previous_char = c;
                 continue;
             }
-            '.' => {
+            '.' if !matches!(
+                current_node_attribute,
+                CssSelectorAttribute::Attribute { .. }
+            ) =>
+            {
                 if CssSelectorAttribute::Empty != current_node_attribute {
                     current_node.attributes.push(current_node_attribute);
                 }
@@ -82,7 +90,11 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                 previous_char = c;
                 continue;
             }
-            ':' => {
+            ':' if !matches!(
+                current_node_attribute,
+                CssSelectorAttribute::Attribute { .. }
+            ) =>
+            {
                 if CssSelectorAttribute::Empty != current_node_attribute {
                     current_node.attributes.push(current_node_attribute);
                 }
@@ -214,12 +226,13 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
 #[cfg(test)]
 mod tests {
     use super::{parse, AttributeSign, CssSelector, CssSelectorAttribute};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn parse_expression() {
         assert_eq!(
             parse(
-                r#"div span #blue div#purple .green div.red :first-of-type p:first-child span:nth-child(2) [data-id='1234'] a[href*='hello'] div[data-class$="red1"] span[role^="complementary"] div#test1.test2.test3:first-child"#
+                r#"div span #blue div#purple .green div.red :first-of-type p:first-child span:nth-child(2) [data-id='1234'] a[href*='hello'] div[data-class$="red1"] span[role^="complementary"] div#test1.test2.test3:first-child [src="chrome:///file.js#test"]"#
                     .to_string()
             ),
             vec![
@@ -284,6 +297,10 @@ mod tests {
                         CssSelectorAttribute::PseudoClass("first-child".to_string(), None),
                     ],
                 },
+                CssSelector {
+                    name: None,
+                    attributes: vec![CssSelectorAttribute::Attribute("src".to_string(), AttributeSign::Equal ,Some("chrome:///file.js#test".to_string()))],
+                }
             ]
         );
     }
