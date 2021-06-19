@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"><!-- vendor assets -->
+  <link rel="stylesheet" href="vendor/css/bootstrap.min.css">
+  <link rel="stylesheet" href="vendor/css/fork-awesome.min.css">
+  <script src="vendor/js/jquery.min.js"></script>
+  <script src="vendor/js/bootstrap.min.js"></script>
+  <!-- custom assets -->
+  <link rel="stylesheet" href="newTab.css">
+  <script src="newTab.js"></script>
+  <title>New Tab</title>
+</head>
+<body>
+  <div class="modal fade" id="faves-list" tabindex="-1" role=
+  "dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="myModalLabel">Your
+          Favorites</h4>
+        </div>
+        <div class="modal-body">
+          <p class="note favorites" style="margin-top:0;">Be
+          careful—these favorites aren't backed up anywhere. You
+          can <a id="show-faves-text" href="#">view them in text
+          form</a> to copy/paste them elsewhere.</p>
+          <div class='brief-list'></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="quick-links-area"></div>
+  <div id="title-area">
+    <section class="fave"></section>
+    <div class="cover-image"></div>
+    <div class="text-box"></div>
+  </div>
+  <div id="snippet-area">
+    <p class="snippet-note">Hand-picked snippet from this book</p>
+    <!-- snippet inserted here  -->
+  </div>
+  <div id="link-area">
+    <p class="tags"><span>Tags</span></p>
+    <p class="permalink"><span>Permalink</span></p>
+    <p class="more"><span>More</span></p>
+  </div><img id="first-announce-note" src=
+  'images/announcement-note-2.png'>
+  <div id="meta-actions-area">
+    <div class="container"></div>
+  </div>
+</body>
+</html>

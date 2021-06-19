@@ -1,5 +1,3 @@
-use std::{io, rc::Rc};
-
 use colored::*;
 use html5ever::{
     serialize::{AttrRef, Serialize, Serializer, TraversalScope},
@@ -8,7 +6,39 @@ use html5ever::{
 use markup5ever::LocalName;
 use markup5ever::{local_name, namespace_url, ns};
 use markup5ever_rcdom::{Node, SerializableHandle};
-use regex::RegexBuilder;
+use regex::{Regex, RegexBuilder};
+use serde;
+use std::{collections::HashMap, io, rc::Rc};
+
+// Represents an HTML tree transformed to a JSON tree
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+#[serde(untagged)]
+enum SNode {
+    Regular {
+        name: String,
+        #[serde(rename(serialize = "type", deserialize = "type"))]
+        kind: String,
+        text: Option<String>,
+        attributes: Option<HashMap<String, Option<String>>>,
+        children: Option<Vec<SNode>>,
+    },
+    Comment {
+        #[serde(rename(serialize = "type", deserialize = "type"))]
+        kind: String,
+        text: Option<String>,
+    },
+    DocType {
+        name: String,
+        #[serde(rename(serialize = "type", deserialize = "type"))]
+        kind: String,
+    },
+    ProcessingInstruction {
+        name: String,
+        #[serde(rename(serialize = "type", deserialize = "type"))]
+        kind: String,
+        text: Option<String>,
+    },
+}
 
 #[derive(Clone, Default)]
 pub struct SerializeSettings {
@@ -16,6 +46,7 @@ pub struct SerializeSettings {
     should_render_text_only: bool,
     should_render_attributes: bool,
     attributes: Vec<String>,
+    is_json_enabled: bool,
 }
 pub struct SerializeSettingsBuilder {
     serialize_settings: SerializeSettings,
@@ -41,21 +72,122 @@ impl SerializeSettingsBuilder {
         self.serialize_settings.attributes = attributes;
     }
 
+    pub fn render_json(&mut self) {
+        self.serialize_settings.is_json_enabled = true;
+    }
+
     fn build(&mut self) -> SerializeSettings {
         self.serialize_settings.to_owned()
     }
 }
 
-// Output a node list as a list of html markup strings
+// Output a node list as a list of html markup or JSON strings
 pub fn serialize_nodes(
     mut settings_builder: SerializeSettingsBuilder,
     nodes: Vec<Rc<Node>>,
+) -> io::Result<String> {
+    let settings = settings_builder.build();
+
+    if settings.is_json_enabled {
+        Ok(serialize_nodes_to_json(&nodes))
+    } else {
+        serialize_nodes_to_html(settings, &nodes)
+    }
+}
+
+fn serialize_nodes_to_json(nodes: &Vec<Rc<Node>>) -> String {
+    serde_json::to_string(&nodes.iter().fold(vec![], |mut acc, node| {
+        acc.push(convert_node_to_snode(node));
+        acc
+    }))
+    .unwrap()
+}
+
+fn convert_node_to_snode(node: &Rc<Node>) -> Option<SNode> {
+    match &node.data {
+        markup5ever_rcdom::NodeData::Element { name, attrs, .. } => {
+            let children = node.children.take();
+            let attributes = attrs.take();
+
+            Some(SNode::Regular {
+                name: name.local.trim().to_string(),
+                attributes: if attributes.is_empty() {
+                    None
+                } else {
+                    Some(attributes.iter().fold(HashMap::new(), |mut acc, attr| {
+                        acc.insert(
+                            attr.name.local.to_string(),
+                            if attr.value.is_empty() {
+                                None
+                            } else {
+                                Some(attr.value.to_string())
+                            },
+                        );
+                        acc
+                    }))
+                },
+                children: {
+                    let cs = children
+                        .iter()
+                        .flat_map(|n| convert_node_to_snode(&n))
+                        .collect::<Vec<SNode>>();
+
+                    if cs.is_empty() {
+                        None
+                    } else {
+                        Some(cs)
+                    }
+                },
+                kind: "regular".to_string(),
+                text: children
+                    .iter()
+                    .flat_map(|n| match n.data {
+                        markup5ever_rcdom::NodeData::Text { ref contents } => {
+                            Some(contents.take().to_string())
+                        }
+                        _ => None,
+                    })
+                    .fold(Some(String::new()), |text, e| text.map(|v| v + e.as_ref()))
+                    .map(|v| {
+                        Regex::new(r"\s+")
+                            .unwrap()
+                            .replace_all(v.as_str(), " ")
+                            .trim()
+                            .to_string()
+                    })
+                    .filter(|v| !v.is_empty()),
+            })
+        }
+        markup5ever_rcdom::NodeData::Doctype { ref name, .. } => Some(SNode::DocType {
+            name: name.to_string(),
+            kind: "doctype".to_string(),
+        }),
+        markup5ever_rcdom::NodeData::Comment { ref contents } => Some(SNode::Comment {
+            kind: "comment".to_string(),
+            text: Some(contents.trim().to_string()),
+        }),
+        markup5ever_rcdom::NodeData::ProcessingInstruction {
+            ref target,
+            ref contents,
+        } => Some(SNode::ProcessingInstruction {
+            name: target.to_string(),
+            kind: "processing_instruction".to_string(),
+            text: Some(contents.trim().to_string()),
+        }),
+        markup5ever_rcdom::NodeData::Document => panic!("Can't serialize Document node itself"),
+        _ => None,
+    }
+}
+
+fn serialize_nodes_to_html(
+    settings: SerializeSettings,
+    nodes: &Vec<Rc<Node>>,
 ) -> io::Result<String> {
     nodes.iter().fold(Ok(String::new()), |acc, node| {
         let mut buffer = String::new();
         let serializer = SerializableHandle::from(node.to_owned());
 
-        let mut ser: HtmlSerializer = HtmlSerializer::new(settings_builder.build(), &mut buffer);
+        let mut ser: HtmlSerializer = HtmlSerializer::new(settings.to_owned(), &mut buffer);
         serializer.serialize(&mut ser, TraversalScope::IncludeNode)?;
 
         if !buffer.is_empty() {
@@ -363,10 +495,12 @@ impl Colorizer {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
     use std::{env, fs};
 
     use crate::filter::filter;
     use crate::renderer;
+    use crate::renderer::SNode;
     use crate::{parser::CssSelector, renderer::SerializeSettingsBuilder};
 
     #[test]
@@ -375,6 +509,7 @@ mod tests {
             filename: &'static str,
             selector: &'static str,
             settings: SerializeSettingsBuilder,
+            test: Box<dyn Fn(String, String)>,
         }
 
         let scenarios: Vec<Scenario> = vec![
@@ -383,12 +518,18 @@ mod tests {
                 filename: "document_with_space",
                 selector: "html",
                 settings: (|| SerializeSettingsBuilder::new())(),
+                test: Box::new(|actual, expected| {
+                    assert_eq!(actual, expected);
+                }),
             },
             Scenario {
                 // Extract one element per line
                 filename: "extract_markup",
                 selector: "div",
                 settings: (|| SerializeSettingsBuilder::new())(),
+                test: Box::new(|actual, expected| {
+                    assert_eq!(actual, expected);
+                }),
             },
             Scenario {
                 // Enable colors
@@ -399,6 +540,9 @@ mod tests {
                     s.enable_color();
                     s
                 })(),
+                test: Box::new(|actual, expected| {
+                    assert_eq!(actual, expected);
+                }),
             },
             Scenario {
                 // Text only
@@ -409,6 +553,9 @@ mod tests {
                     s.should_render_text_only();
                     s
                 })(),
+                test: Box::new(|actual, expected| {
+                    assert_eq!(actual, expected);
+                }),
             },
             Scenario {
                 // Render attributes
@@ -419,6 +566,39 @@ mod tests {
                     s.should_render_attributes(vec!["class".to_string(), "data-value".to_string()]);
                     s
                 })(),
+                test: Box::new(|actual, expected| {
+                    assert_eq!(actual, expected);
+                }),
+            },
+            Scenario {
+                // Render a whole html document in JSON
+                filename: "render_whole_json",
+                selector: "html",
+                settings: (|| {
+                    let mut s = SerializeSettingsBuilder::new();
+                    s.render_json();
+                    s
+                })(),
+                test: Box::new(|actual, expected| {
+                    let a: Vec<SNode> = serde_json::from_str(actual.as_str()).unwrap();
+                    let e: Vec<SNode> = serde_json::from_str(expected.as_str()).unwrap();
+                    assert_eq!(a, e);
+                }),
+            },
+            Scenario {
+                // Render part of html tree in a single JSON
+                filename: "render_partial_json",
+                selector: "div",
+                settings: (|| {
+                    let mut s = SerializeSettingsBuilder::new();
+                    s.render_json();
+                    s
+                })(),
+                test: Box::new(|actual, expected| {
+                    let a: Vec<SNode> = serde_json::from_str(actual.as_str()).unwrap();
+                    let e: Vec<SNode> = serde_json::from_str(expected.as_str()).unwrap();
+                    assert_eq!(a, e);
+                }),
             },
         ];
 
@@ -427,7 +607,7 @@ mod tests {
                 fs::read(env::var("CARGO_MANIFEST_DIR").unwrap() + "/src/renderer/" + s.filename)
                     .unwrap();
 
-            let expected_html = fs::read_to_string(
+            let expected = fs::read_to_string(
                 env::var("CARGO_MANIFEST_DIR").unwrap()
                     + "/src/renderer/"
                     + s.filename
@@ -443,12 +623,11 @@ mod tests {
                 }],
             );
 
-            debug_assert_eq!(
-                renderer::serialize_nodes(s.settings, nodes)
-                    .unwrap()
-                    .replace("\u{1b}", "\\u{1b}"),
-                expected_html
-            );
+            let actual = renderer::serialize_nodes(s.settings, nodes)
+                .unwrap()
+                .replace("\u{1b}", "\\u{1b}");
+
+            (s.test)(actual, expected);
         }
     }
 }

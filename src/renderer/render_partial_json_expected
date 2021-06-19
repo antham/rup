@@ -1,0 +1,245 @@
+[
+  {
+    "name": "div",
+    "type": "regular",
+    "text": null,
+    "attributes": {
+      "id": "faves-list",
+      "tabindex": "-1",
+      "class": "modal fade",
+      "role": "dialog"
+    },
+    "children": [
+      {
+        "name": "div",
+        "type": "regular",
+        "text": null,
+        "attributes": {
+          "class": "modal-dialog",
+          "role": "document"
+        },
+        "children": [
+          {
+            "name": "div",
+            "type": "regular",
+            "text": null,
+            "attributes": {
+              "class": "modal-content"
+            },
+            "children": [
+              {
+                "name": "div",
+                "type": "regular",
+                "text": null,
+                "attributes": {
+                  "class": "modal-header"
+                },
+                "children": [
+                  {
+                    "name": "h4",
+                    "type": "regular",
+                    "text": "Your Favorites",
+                    "attributes": {
+                      "class": "modal-title",
+                      "id": "myModalLabel"
+                    },
+                    "children": null
+                  }
+                ]
+              },
+              {
+                "name": "div",
+                "type": "regular",
+                "text": null,
+                "attributes": {
+                  "class": "modal-body"
+                },
+                "children": [
+                  {
+                    "name": "p",
+                    "type": "regular",
+                    "text": "Be careful—these favorites aren't backed up anywhere. You can to copy/paste them elsewhere.",
+                    "attributes": {
+                      "class": "note favorites",
+                      "style": "margin-top:0;"
+                    },
+                    "children": [
+                      {
+                        "name": "a",
+                        "type": "regular",
+                        "text": "view them in text form",
+                        "attributes": {
+                          "id": "show-faves-text",
+                          "href": "#"
+                        },
+                        "children": null
+                      }
+                    ]
+                  },
+                  {
+                    "name": "div",
+                    "type": "regular",
+                    "text": null,
+                    "attributes": {
+                      "class": "brief-list"
+                    },
+                    "children": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "div",
+    "type": "regular",
+    "text": null,
+    "attributes": {
+      "id": "quick-links-area"
+    },
+    "children": null
+  },
+  {
+    "name": "div",
+    "type": "regular",
+    "text": null,
+    "attributes": {
+      "id": "title-area"
+    },
+    "children": [
+      {
+        "name": "section",
+        "type": "regular",
+        "text": null,
+        "attributes": {
+          "class": "fave"
+        },
+        "children": null
+      },
+      {
+        "name": "div",
+        "type": "regular",
+        "text": null,
+        "attributes": {
+          "class": "cover-image"
+        },
+        "children": null
+      },
+      {
+        "name": "div",
+        "type": "regular",
+        "text": null,
+        "attributes": {
+          "class": "text-box"
+        },
+        "children": null
+      }
+    ]
+  },
+  {
+    "name": "div",
+    "type": "regular",
+    "text": null,
+    "attributes": {
+      "id": "snippet-area"
+    },
+    "children": [
+      {
+        "name": "p",
+        "type": "regular",
+        "text": "Hand-picked snippet from this book",
+        "attributes": {
+          "class": "snippet-note"
+        },
+        "children": null
+      },
+      {
+        "type": "comment",
+        "text": "snippet inserted here"
+      }
+    ]
+  },
+  {
+    "name": "div",
+    "type": "regular",
+    "text": null,
+    "attributes": {
+      "id": "link-area"
+    },
+    "children": [
+      {
+        "name": "p",
+        "type": "regular",
+        "text": null,
+        "attributes": {
+          "class": "tags"
+        },
+        "children": [
+          {
+            "name": "span",
+            "type": "regular",
+            "text": "Tags",
+            "attributes": null,
+            "children": null
+          }
+        ]
+      },
+      {
+        "name": "p",
+        "type": "regular",
+        "text": null,
+        "attributes": {
+          "class": "permalink"
+        },
+        "children": [
+          {
+            "name": "span",
+            "type": "regular",
+            "text": "Permalink",
+            "attributes": null,
+            "children": null
+          }
+        ]
+      },
+      {
+        "name": "p",
+        "type": "regular",
+        "text": null,
+        "attributes": {
+          "class": "more"
+        },
+        "children": [
+          {
+            "name": "span",
+            "type": "regular",
+            "text": "More",
+            "attributes": null,
+            "children": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "div",
+    "type": "regular",
+    "text": null,
+    "attributes": {
+      "id": "meta-actions-area"
+    },
+    "children": [
+      {
+        "name": "div",
+        "type": "regular",
+        "text": null,
+        "attributes": {
+          "class": "container"
+        },
+        "children": null
+      }
+    ]
+  }
+]
