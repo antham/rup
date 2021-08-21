@@ -184,18 +184,22 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![CssSelectorAttribute::ID("1".to_string())],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![CssSelectorAttribute::Class("3".to_string())],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "chain_of_css.html",
@@ -207,6 +211,7 @@ mod tests {
                 vec![CssSelector {
                     name: Some("span".to_string()),
                     attributes: vec![CssSelectorAttribute::ID("3".to_string())],
+                    combinator: CssCombinator::Descendant,
                 }],
                 "single_css_selector.html",
                 r#"<span id="3"><span class="7">TEST 7</span><span class="8">TEST 8</span><span class="9">TEST 9</span></span>"#,
@@ -218,30 +223,37 @@ mod tests {
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "several_nodes.html",
@@ -254,10 +266,12 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: None,
@@ -266,6 +280,7 @@ mod tests {
                             AttributeSign::Equal,
                             Some("2".to_string()),
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "strict_equality_selector.html",
@@ -278,10 +293,12 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: None,
@@ -290,6 +307,7 @@ mod tests {
                             AttributeSign::BeginWith,
                             Some("5".to_string()),
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "with_beginning_selector.html",
@@ -302,10 +320,12 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: None,
@@ -314,6 +334,7 @@ mod tests {
                             AttributeSign::EndWith,
                             Some("5".to_string()),
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "with_ending_selector.html",
@@ -326,10 +347,12 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: None,
@@ -338,6 +361,7 @@ mod tests {
                             AttributeSign::Contain,
                             Some("756".to_string()),
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "containing_selector.html",
@@ -350,10 +374,12 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: None,
@@ -362,6 +388,7 @@ mod tests {
                             AttributeSign::Empty,
                             None,
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "matching_selector.html",
@@ -374,6 +401,7 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("span".to_string()),
@@ -387,6 +415,7 @@ mod tests {
                             CssSelectorAttribute::Class("test3".to_string()),
                             CssSelectorAttribute::Class("test1".to_string()),
                         ],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "multi_attributes.html",
@@ -403,6 +432,7 @@ mod tests {
                             AttributeSign::Equal,
                             Some("1".to_string()),
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
@@ -410,6 +440,7 @@ mod tests {
                             "first-child".to_string(),
                             None,
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "first_child_selector.html",
@@ -426,6 +457,7 @@ mod tests {
                             AttributeSign::Equal,
                             Some("1".to_string()),
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
@@ -433,6 +465,7 @@ mod tests {
                             "last-child".to_string(),
                             None,
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "last_child_selector.html",
@@ -449,6 +482,7 @@ mod tests {
                             AttributeSign::Equal,
                             Some("1".to_string()),
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
@@ -456,6 +490,7 @@ mod tests {
                             "nth-child".to_string(),
                             Some("2".to_string()),
                         )],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "nth_child_selector.html",
@@ -468,10 +503,12 @@ mod tests {
                     CssSelector {
                         name: Some("li".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![],
+                        combinator: CssCombinator::Descendant,
                     },
                 ],
                 "unexisting_node.html",

@@ -499,6 +499,7 @@ mod tests {
     use std::{env, fs};
 
     use crate::filter::filter;
+    use crate::parser::CssCombinator;
     use crate::renderer;
     use crate::renderer::SNode;
     use crate::{parser::CssSelector, renderer::SerializeSettingsBuilder};
@@ -620,6 +621,7 @@ mod tests {
                 &vec![CssSelector {
                     name: Some(s.selector.to_string()),
                     attributes: vec![],
+                    combinator: CssCombinator::Descendant,
                 }],
             );
 
