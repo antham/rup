@@ -8,7 +8,7 @@ Rup is a clone of the excellent [pup](https://github.com/EricChiang/pup). It's [
 - [x] #id
 - [x] .class
 - [ ] selector + selector
-- [ ] selector > selector
+- [x] selector > selector
 - [x] [attribute]
 - [x] [attribute="value"]
 - [x] [attribute^="value"]

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::parser::{CssSelector, CssSelectorAttribute};
+use crate::parser::{CssCombinator, CssSelector, CssSelectorAttribute};
 
 use super::parser;
 use html5ever::tendril::{stream::TendrilSink, ByteTendril};
@@ -41,7 +41,9 @@ fn filter_matching_nodes(
                 && is_matching_selector_attributes(selector, attrs, position, length);
             let next_index = if is_matching_node { index + 1 } else { index };
 
-            if next_index == selectors.len() && is_matching_node {
+            if !is_matching_node && selector.combinator == CssCombinator::DirectChild {
+                vec![]
+            } else if next_index == selectors.len() && is_matching_node {
                 vec![node.to_owned()]
             } else {
                 explore_children_nodes(node, selectors, next_index)
@@ -495,6 +497,115 @@ mod tests {
                 ],
                 "nth_child_selector.html",
                 r#"<div>TEST 2</div>"#,
+                1,
+            ),
+            (
+                // Css selector with direct child selector and no direct child found
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::DirectChild,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::Equal,
+                            Some("7".to_string()),
+                        )],
+                        combinator: CssCombinator::DirectChild,
+                    },
+                ],
+                "direct_child_selector.html",
+                r#""#,
+                0,
+            ),
+            (
+                // Css selector with direct child selector and a direct child found
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::DirectChild,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::Equal,
+                            Some("7".to_string()),
+                        )],
+                        combinator: CssCombinator::DirectChild,
+                    },
+                ],
+                "direct_child_selector.html",
+                r#"<div data-val="7">TEST 2</div>"#,
                 1,
             ),
             (
