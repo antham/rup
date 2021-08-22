@@ -10,6 +10,8 @@ pub enum AttributeSign {
     BeginWith,
     // Represents $=
     EndWith,
+    // Represents ~=
+    ContainWord,
 }
 
 // Represents an element attribute (e.g. #id, .class, ....)
@@ -220,6 +222,13 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                                 None,
                             )
                         }
+                        '=' if previous_char == '~' && sign == &AttributeSign::Empty => {
+                            current_node_attribute = CssSelectorAttribute::Attribute(
+                                left_operand.to_owned(),
+                                AttributeSign::ContainWord,
+                                None,
+                            )
+                        }
                         '=' if sign == &AttributeSign::Empty => {
                             current_node_attribute = CssSelectorAttribute::Attribute(
                                 left_operand.to_owned(),
@@ -229,7 +238,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                             previous_char = c;
                             continue;
                         }
-                        '*' | '$' | '^' if right_operand == &None => {
+                        '*' | '$' | '^' | '~' if right_operand == &None => {
                             previous_char = c;
                             continue;
                         }
@@ -287,7 +296,7 @@ mod tests {
     fn parse_expression() {
         assert_eq!(
             parse(
-                r#"div span #blue div#purple div.orange .green div.red :first-of-type > span#test p:first-child span:nth-child(2) [data-id='1234'] a[href*='hello'] div[data-class$="red1"] span[role^="complementary"] div#test1.test2.test3:first-child div.test5 + span.test6 [src="chrome:///file.js#test"] div[src="hello world"]"#
+                r#"div span #blue div#purple div.orange .green div.red :first-of-type > span#test p:first-child span:nth-child(2) [data-id='1234'] a[href*='hello'] div[data-class$="red1"] span[role^="complementary"] div#test1.test2.test3:first-child div.test5 + span.test6 [src="chrome:///file.js#test"] div[src="hello world"] div[data-src~="whatever"]"#
                     .to_string()
             ),
             vec![
@@ -398,6 +407,11 @@ mod tests {
                 CssSelector {
                     name: Some("div".to_string()),
                     attributes: vec![CssSelectorAttribute::Attribute("src".to_string(), AttributeSign::Equal ,Some("hello world".to_string()))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("div".to_string()),
+                    attributes: vec![CssSelectorAttribute::Attribute("data-src".to_string(), AttributeSign::ContainWord ,Some("whatever".to_string()))],
                     combinator: CssCombinator::Descendant,
                 }
             ]

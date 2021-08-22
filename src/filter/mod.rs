@@ -156,6 +156,11 @@ fn is_matching_selector_attributes(
                             AttributeSign::EndWith,
                             Some(val),
                         ) => (*v).0 == *attr && (*v).1.ends_with(val.as_str()),
+                        CssSelectorAttribute::Attribute(
+                            attr,
+                            AttributeSign::ContainWord,
+                            Some(val),
+                        ) => (*v).0 == *attr && (*v).1.split(' ').any(|w| w == val.as_str()),
                         _ => false,
                     })
                     .collect::<Vec<_>>()
@@ -368,6 +373,60 @@ mod tests {
                 ],
                 "containing_selector.html",
                 r#"<div data-val="67567">TEST 11</div>"#,
+                1,
+            ),
+            (
+                // Css expression with containing word attribute selector without an attribute containing a whole word
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: None,
+                        attributes: vec![CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::ContainWord,
+                            Some("whatever".to_string()),
+                        )],
+                        combinator: CssCombinator::Descendant,
+                    },
+                ],
+                "containing_word_selector.html",
+                r#""#,
+                0,
+            ),
+            (
+                // Css expression with containing word attribute selector with an attribute containing a whole word
+                vec![
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("div".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: None,
+                        attributes: vec![CssSelectorAttribute::Attribute(
+                            "data-val".to_string(),
+                            AttributeSign::ContainWord,
+                            Some("things".to_string()),
+                        )],
+                        combinator: CssCombinator::Descendant,
+                    },
+                ],
+                "containing_word_selector.html",
+                r#"<div data-val="hello world, how things are going">TEST 11</div>"#,
                 1,
             ),
             (

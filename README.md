@@ -12,7 +12,7 @@ Rup is a clone of the excellent [pup](https://github.com/EricChiang/pup). It's [
 - [x] [attribute]
 - [x] [attribute="value"]
 - [x] [attribute^="value"]
-- [ ] [attribute~="value"]
+- [x] [attribute~="value"]
 - [x] [attribute$="value"]
 - [x] [attribute*="value"]
 - [x] :first-child
