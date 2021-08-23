@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::parser::{CssCombinator, CssSelector, CssSelectorAttribute};
+use crate::parser::{CssCombinator, CssSelector, CssSelectorAttribute, PseudoClass};
 
 use super::parser;
 use html5ever::tendril::{stream::TendrilSink, ByteTendril};
@@ -97,15 +97,11 @@ fn is_matching_selector_attributes(
 ) -> bool {
     selector.attributes.iter().all(|c| {
         match &c {
-            CssSelectorAttribute::PseudoClass(attr, None) => match attr.as_str() {
-                "first-child" => position == 0,
-                "last-child" => position == length - 1,
-                _ => false,
-            },
-            CssSelectorAttribute::PseudoClass(attr, Some(index)) => match attr.as_str() {
-                "nth-child" => position + 1 == index.parse::<usize>().unwrap(),
-                _ => false,
-            },
+            CssSelectorAttribute::PseudoClass(PseudoClass::FirstChild) => position == 0,
+            CssSelectorAttribute::PseudoClass(PseudoClass::LastChild) => position == length - 1,
+            CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(index)) => {
+                position + 1 == *index
+            }
             _ => {
                 attrs
                     .borrow()
@@ -498,8 +494,7 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![CssSelectorAttribute::PseudoClass(
-                            "first-child".to_string(),
-                            None,
+                            parser::PseudoClass::FirstChild,
                         )],
                         combinator: CssCombinator::Descendant,
                     },
@@ -523,8 +518,7 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![CssSelectorAttribute::PseudoClass(
-                            "last-child".to_string(),
-                            None,
+                            parser::PseudoClass::LastChild,
                         )],
                         combinator: CssCombinator::Descendant,
                     },
@@ -548,8 +542,7 @@ mod tests {
                     CssSelector {
                         name: Some("div".to_string()),
                         attributes: vec![CssSelectorAttribute::PseudoClass(
-                            "nth-child".to_string(),
-                            Some("2".to_string()),
+                            parser::PseudoClass::NthChild(2),
                         )],
                         combinator: CssCombinator::Descendant,
                     },

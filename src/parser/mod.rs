@@ -1,3 +1,5 @@
+use crate::parser;
+
 // Represents the sign used by the css attribute selector
 #[derive(Debug, Clone, PartialEq)]
 pub enum AttributeSign {
@@ -14,6 +16,22 @@ pub enum AttributeSign {
     ContainWord,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum NthChild {
+    Even,
+    Odd,
+    Relative(usize, usize),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PseudoClass {
+    Empty,
+    LastChild,
+    FirstChild,
+    NthChild(usize),
+    FirstOfType,
+}
+
 // Represents an element attribute (e.g. #id, .class, ....)
 #[derive(Debug, Clone, PartialEq)]
 pub enum CssSelectorAttribute {
@@ -25,7 +43,7 @@ pub enum CssSelectorAttribute {
     // Represents a css attribute selector like [target=_blank]
     Attribute(String, AttributeSign, Option<String>),
     // Represents a css pseudo=class selector like :last-child
-    PseudoClass(String, Option<String>),
+    PseudoClass(PseudoClass),
 }
 
 // Represents a css combinator (e.g. : A B, A + B, A > B)
@@ -103,6 +121,8 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
         }
 
         let mut current_node_attribute = CssSelectorAttribute::Empty;
+        let mut pseudo_class_name = String::new();
+        let mut pseudo_class_nth_child_value = String::new();
         let mut previous_char = char::default();
         let mut current_node = CssSelector::default();
         current_node.combinator = current_node_combinator.to_owned();
@@ -152,7 +172,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                     if CssSelectorAttribute::Empty != current_node_attribute {
                         current_node.attributes.push(current_node_attribute);
                     }
-                    current_node_attribute = CssSelectorAttribute::PseudoClass(String::new(), None);
+                    current_node_attribute = CssSelectorAttribute::PseudoClass(PseudoClass::Empty);
                     previous_char = c;
                     continue;
                 }
@@ -169,29 +189,50 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                 }
                 // The attr (e.g. 2 in div:nth-child(2)) is used as a marker, if it's not defined we have to add any character to define the pseudo-class
                 // if it's defined, it means we are collecting characters for the attribute
-                CssSelectorAttribute::PseudoClass(ref s, ref attr) => match c {
-                    ')' | '(' => {
+                CssSelectorAttribute::PseudoClass(PseudoClass::Empty) => match c {
+                    _ => {
+                        pseudo_class_name.push(c);
+                        match pseudo_class_name.as_str() {
+                            "first-child" => {
+                                current_node_attribute =
+                                    CssSelectorAttribute::PseudoClass(parser::PseudoClass::FirstChild)
+                            }
+                            "last-child" => {
+                                current_node_attribute =
+                                    CssSelectorAttribute::PseudoClass(parser::PseudoClass::LastChild)
+                            }
+                            "first-of-type" => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::FirstOfType,
+                                )
+                            },
+                            "nth-child" => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(0),
+                                )
+                            }
+                            _ => {
+
+                            }
+                        }
+                    },
+                },
+                CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(_)) => match c {
+                    '(' => {
                         previous_char = c;
                         continue;
                     }
-                    _ if previous_char == '(' => {
-                        current_node_attribute =
-                            CssSelectorAttribute::PseudoClass(s.to_owned(), Some(c.to_string()))
-                    }
-                    _ if attr != &None => {
+                    ')' => {
                         current_node_attribute = CssSelectorAttribute::PseudoClass(
-                            s.to_owned(),
-                            Some(attr.to_owned().unwrap() + c.to_string().as_ref()),
-                        )
+                            parser::PseudoClass::NthChild(pseudo_class_nth_child_value.parse::<usize>().unwrap()),
+                        );
+                        previous_char = c;
+                        continue;
                     }
-                    _ if attr == &None => {
-                        current_node_attribute = CssSelectorAttribute::PseudoClass(
-                            s.to_owned() + c.to_string().as_ref(),
-                            None,
-                        )
+                    _ => {
+                        pseudo_class_nth_child_value.push(c)
                     }
-                    _ => (),
-                },
+                }
                 // The sign (e.g. : =, ~=, ...) is used as a marker, if it's not defined we have to add any character to the left operand
                 // if it's defined, we are completing the right operand
                 CssSelectorAttribute::Attribute(ref left_operand, ref sign, ref right_operand) => {
@@ -271,6 +312,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                     Some(s) => current_node.name = Some(s + c.to_string().as_ref()),
                     None => current_node.name = Some(c.to_string()),
                 },
+                _ => (),
             }
 
             previous_char = c;
@@ -287,7 +329,7 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::CssCombinator;
+    use crate::parser::{self, CssCombinator, PseudoClass};
 
     use super::{parse, AttributeSign, CssSelector, CssSelectorAttribute};
     use pretty_assertions::assert_eq;
@@ -337,22 +379,22 @@ mod tests {
                 },
                 CssSelector {
                     name: None,
-                    attributes: vec![CssSelectorAttribute::PseudoClass("first-of-type".to_string(), None)],
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::FirstOfType)],
                     combinator: CssCombinator::Descendant,
                 },
-               CssSelector {
+                CssSelector {
                     name: Some("span".to_string()),
                     attributes: vec![CssSelectorAttribute::ID("test".to_string())],
                     combinator: CssCombinator::DirectChild,
                 },
                 CssSelector {
                     name: Some("p".to_string()),
-                    attributes: vec![CssSelectorAttribute::PseudoClass("first-child".to_string(), None)],
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::FirstChild)],
                     combinator: CssCombinator::Descendant,
                 },
                 CssSelector {
                     name: Some("span".to_string()),
-                    attributes: vec![CssSelectorAttribute::PseudoClass("nth-child".to_string(), Some("2".to_string()))],
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(2))],
                     combinator: CssCombinator::Descendant,
                 },
                 CssSelector {
@@ -381,7 +423,7 @@ mod tests {
                         CssSelectorAttribute::ID("test1".to_string()),
                         CssSelectorAttribute::Class("test2".to_string()),
                         CssSelectorAttribute::Class("test3".to_string()),
-                        CssSelectorAttribute::PseudoClass("first-child".to_string(), None),
+                        CssSelectorAttribute::PseudoClass(parser::PseudoClass::FirstChild),
                     ],
                     combinator: CssCombinator::Descendant,
                 },
