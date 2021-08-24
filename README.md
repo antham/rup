@@ -22,7 +22,7 @@ Rup is a clone of the excellent [pup](https://github.com/EricChiang/pup). It's [
 - [ ] :only-child
 - [ ] :only-of-type
 - [ ] :contains("text")
-- [ ] :nth-child(n)
+- [x] :nth-child(n)
 - [ ] :nth-of-type(n)
 - [ ] :nth-last-child(n)
 - [ ] :nth-last-of-type(n)

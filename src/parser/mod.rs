@@ -17,18 +17,11 @@ pub enum AttributeSign {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum NthChild {
-    Even,
-    Odd,
-    Relative(usize, usize),
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub enum PseudoClass {
     Empty,
     LastChild,
     FirstChild,
-    NthChild(usize),
+    NthChild(i32, i32),
     FirstOfType,
 }
 
@@ -121,8 +114,8 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
         }
 
         let mut current_node_attribute = CssSelectorAttribute::Empty;
-        let mut pseudo_class_name = String::new();
-        let mut pseudo_class_nth_child_value = String::new();
+        let mut pseudo_class_name = String::default();
+        let mut pseudo_class_nth_child_value = String::default();
         let mut previous_char = char::default();
         let mut current_node = CssSelector::default();
         current_node.combinator = current_node_combinator.to_owned();
@@ -194,45 +187,102 @@ pub fn parse(expression: String) -> Vec<CssSelector> {
                         pseudo_class_name.push(c);
                         match pseudo_class_name.as_str() {
                             "first-child" => {
-                                current_node_attribute =
-                                    CssSelectorAttribute::PseudoClass(parser::PseudoClass::FirstChild)
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::FirstChild,
+                                )
                             }
                             "last-child" => {
-                                current_node_attribute =
-                                    CssSelectorAttribute::PseudoClass(parser::PseudoClass::LastChild)
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::LastChild,
+                                )
                             }
                             "first-of-type" => {
                                 current_node_attribute = CssSelectorAttribute::PseudoClass(
                                     parser::PseudoClass::FirstOfType,
                                 )
-                            },
+                            }
                             "nth-child" => {
                                 current_node_attribute = CssSelectorAttribute::PseudoClass(
-                                    parser::PseudoClass::NthChild(0),
+                                    parser::PseudoClass::NthChild(0, 0),
                                 )
                             }
-                            _ => {
-
-                            }
+                            _ => {}
                         }
-                    },
+                    }
                 },
-                CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(_)) => match c {
+                CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(a, _)) => match c {
                     '(' => {
                         previous_char = c;
                         continue;
                     }
                     ')' => {
-                        current_node_attribute = CssSelectorAttribute::PseudoClass(
-                            parser::PseudoClass::NthChild(pseudo_class_nth_child_value.parse::<usize>().unwrap()),
-                        );
+                        match pseudo_class_nth_child_value.as_str() {
+                            "even" => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(2, 0),
+                                )
+                            }
+                            "odd" => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(2, 1),
+                                )
+                            }
+                            "" => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(a, 0),
+                                )
+                            }
+                            v @ _ => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(a, v.parse::<i32>().unwrap()),
+                                )
+                            }
+                        }
+                        previous_char = c;
+                        continue;
+                    }
+                    'n' if pseudo_class_nth_child_value != "eve" => {
+                        match pseudo_class_nth_child_value.to_owned().as_str() {
+                            "" => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(1, 0),
+                                )
+                            }
+                            "-" => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(-1, 0),
+                                )
+                            }
+                            v @ _ if v.chars().nth(0).unwrap() == '-' => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(
+                                        -v.chars()
+                                            .skip(1)
+                                            .collect::<String>()
+                                            .parse::<i32>()
+                                            .unwrap(),
+                                        0,
+                                    ),
+                                );
+                            }
+                            v @ _ => {
+                                current_node_attribute = CssSelectorAttribute::PseudoClass(
+                                    parser::PseudoClass::NthChild(v.parse::<i32>().unwrap(), 0),
+                                );
+                            }
+                        }
+                        pseudo_class_nth_child_value.clear();
                         previous_char = c;
                         continue;
                     }
                     _ => {
-                        pseudo_class_nth_child_value.push(c)
+                        if pseudo_class_nth_child_value.is_empty() {
+                            pseudo_class_nth_child_value = String::from(c);
+                        } else {
+                            pseudo_class_nth_child_value.push(c);
+                        }
                     }
-                }
+                },
                 // The sign (e.g. : =, ~=, ...) is used as a marker, if it's not defined we have to add any character to the left operand
                 // if it's defined, we are completing the right operand
                 CssSelectorAttribute::Attribute(ref left_operand, ref sign, ref right_operand) => {
@@ -338,7 +388,7 @@ mod tests {
     fn parse_expression() {
         assert_eq!(
             parse(
-                r#"div span #blue div#purple div.orange .green div.red :first-of-type > span#test p:first-child span:nth-child(2) [data-id='1234'] a[href*='hello'] div[data-class$="red1"] span[role^="complementary"] div#test1.test2.test3:first-child div.test5 + span.test6 [src="chrome:///file.js#test"] div[src="hello world"] div[data-src~="whatever"]"#
+                r#"div span #blue div#purple div.orange .green div.red :first-of-type > span#test p:first-child span:nth-child(2) [data-id='1234'] a[href*='hello'] div[data-class$="red1"] span[role^="complementary"] div#test1.test2.test3:first-child div.test5 + span.test6 [src="chrome:///file.js#test"] div[src="hello world"] div[data-src~="whatever"] span:nth-child(n+8) div:nth-child(2n+1) li:nth-child(3n) li:nth-child(-n-1) li:nth-child(-8n-8) li:nth-child(even) li:nth-child(odd) li:nth-child(n)"#
                     .to_string()
             ),
             vec![
@@ -394,7 +444,7 @@ mod tests {
                 },
                 CssSelector {
                     name: Some("span".to_string()),
-                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(2))],
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(0,2))],
                     combinator: CssCombinator::Descendant,
                 },
                 CssSelector {
@@ -454,6 +504,46 @@ mod tests {
                 CssSelector {
                     name: Some("div".to_string()),
                     attributes: vec![CssSelectorAttribute::Attribute("data-src".to_string(), AttributeSign::ContainWord ,Some("whatever".to_string()))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("span".to_string()),
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(1,8))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("div".to_string()),
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(2,1))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("li".to_string()),
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(3,0))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("li".to_string()),
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(-1,-1))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("li".to_string()),
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(-8,-8))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("li".to_string()),
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(2,0))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("li".to_string()),
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(2,1))],
+                    combinator: CssCombinator::Descendant,
+                },
+                CssSelector {
+                    name: Some("li".to_string()),
+                    attributes: vec![CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(1,0))],
                     combinator: CssCombinator::Descendant,
                 }
             ]

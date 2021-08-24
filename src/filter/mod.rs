@@ -99,8 +99,13 @@ fn is_matching_selector_attributes(
         match &c {
             CssSelectorAttribute::PseudoClass(PseudoClass::FirstChild) => position == 0,
             CssSelectorAttribute::PseudoClass(PseudoClass::LastChild) => position == length - 1,
-            CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(index)) => {
-                position + 1 == *index
+            CssSelectorAttribute::PseudoClass(PseudoClass::NthChild(a, b)) => {
+                let cal_pos = position + 1;
+
+                match *a {
+                    0 => (cal_pos as i32) == *b,
+                    _ => ((cal_pos) as i32 - *b) % *a == 0 && ((cal_pos) as i32 - *b) / *a >= 0,
+                }
             }
             _ => {
                 attrs
@@ -453,7 +458,7 @@ mod tests {
                 4,
             ),
             (
-                // Css expression with mutli attribute
+                // Css expression with multi attributes
                 vec![
                     CssSelector {
                         name: Some("div".to_string()),
@@ -528,28 +533,104 @@ mod tests {
                 1,
             ),
             (
-                // Css selector with last-child pseudo class
+                // Css selector with nth-child pseudo class and a single element to choose
                 vec![
                     CssSelector {
-                        name: Some("div".to_string()),
-                        attributes: vec![CssSelectorAttribute::Attribute(
-                            "data-val".to_string(),
-                            AttributeSign::Equal,
-                            Some("1".to_string()),
-                        )],
+                        name: Some("ul".to_string()),
+                        attributes: vec![],
                         combinator: CssCombinator::Descendant,
                     },
                     CssSelector {
-                        name: Some("div".to_string()),
+                        name: Some("li".to_string()),
                         attributes: vec![CssSelectorAttribute::PseudoClass(
-                            parser::PseudoClass::NthChild(2),
+                            parser::PseudoClass::NthChild(0, 2),
                         )],
                         combinator: CssCombinator::Descendant,
                     },
                 ],
                 "nth_child_selector.html",
-                r#"<div>TEST 2</div>"#,
+                r#"<li>Second list item</li>"#,
                 1,
+            ),
+            (
+                // Css selector with nth-child pseudo class and an even selector
+                vec![
+                    CssSelector {
+                        name: Some("ol".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("li".to_string()),
+                        attributes: vec![CssSelectorAttribute::PseudoClass(
+                            parser::PseudoClass::NthChild(2, 0),
+                        )],
+                        combinator: CssCombinator::DirectChild,
+                    },
+                ],
+                "nth_child_selector.html",
+                r#"<li class="red">This second list item should have a green background</li><li class="red">This fourth list item should have a green background</li><li class="red">This sixth list item should have a green background</li>"#,
+                3,
+            ),
+            (
+                // Css selector with nth-child pseudo class and an odd selector
+                vec![
+                    CssSelector {
+                        name: Some("ul".to_string()),
+                        attributes: vec![],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("li".to_string()),
+                        attributes: vec![CssSelectorAttribute::PseudoClass(
+                            parser::PseudoClass::NthChild(2, 1),
+                        )],
+                        combinator: CssCombinator::DirectChild,
+                    },
+                ],
+                "nth_child_selector.html",
+                r#"<li class="red" foo="foo">This first list item should have a green background</li><li class="red">This third list item should have a green background</li><li class="red">This fifth list item should have a green background</li>"#,
+                3,
+            ),
+            (
+                // Css selector with nth-child pseudo class and negative expression
+                vec![
+                    CssSelector {
+                        name: Some("table".to_string()),
+                        attributes: vec![CssSelectorAttribute::Class("t1".to_string())],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("tr".to_string()),
+                        attributes: vec![CssSelectorAttribute::PseudoClass(
+                            parser::PseudoClass::NthChild(-1, 4),
+                        )],
+                        combinator: CssCombinator::Descendant,
+                    },
+                ],
+                "nth_child_selector.html",
+                r#"<tr class="red"><td>Green row : 1.1</td><td>1.2</td><td>1.3</td></tr><tr class="red"><td>Green row : 2.1</td><td>2.2</td><td>2.3</td></tr><tr class="red"><td>Green row : 3.1</td><td>3.2</td><td>3.3</td></tr><tr class="red"><td>Green row : 4.1</td><td>4.2</td><td>4.3</td></tr>"#,
+                4,
+            ),
+            (
+                // Css selector with nth-child pseudo class and expression
+                vec![
+                    CssSelector {
+                        name: Some("table".to_string()),
+                        attributes: vec![CssSelectorAttribute::Class("t2".to_string())],
+                        combinator: CssCombinator::Descendant,
+                    },
+                    CssSelector {
+                        name: Some("td".to_string()),
+                        attributes: vec![CssSelectorAttribute::PseudoClass(
+                            parser::PseudoClass::NthChild(3, 1),
+                        )],
+                        combinator: CssCombinator::Descendant,
+                    },
+                ],
+                "nth_child_selector.html",
+                r#"<td class="red">green cell</td><td class="red">green cell</td><td class="red">green cell</td><td class="red">green cell</td><td class="red">green cell</td><td class="red">green cell</td><td class="red">green cell</td><td class="red">green cell</td><td class="red">green cell</td>"#,
+                9,
             ),
             (
                 // Css selector with direct child selector and no direct child found
